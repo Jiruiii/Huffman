@@ -1,4 +1,4 @@
-# Visual Studio 相關
+# Visual Studio files
 *.suo
 *.user
 *.sln.docstates
@@ -10,7 +10,7 @@
 *.vcxproj.filters
 *.vcxproj.user
 
-# 編譯輸出
+# Build output
 *.obj
 *.exe
 *.pdb
@@ -22,7 +22,7 @@
 *.tlog
 *.manifest
 
-# 測試輸出
+# Test output
 test_original.txt
 test_copy.txt
 test_output.txt
@@ -30,18 +30,18 @@ test_empty.txt
 *.huf
 *_recovered.txt
 
-# 專案特定編譯檔案
+# Project specific build files
 Project.lst
 Debug/
 Release/
 x64/
 x86/
 
-# Irvine 相關（如果不需要上傳）
+# Irvine library (comment out if needed to upload)
 # Irvine32.inc
 # Irvine32.lib
 
-# 其他
+# Other
 *.bak
 *.tmp
 Thumbs.db
