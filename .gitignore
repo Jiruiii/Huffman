@@ -1,0 +1,48 @@
+# Visual Studio 相關
+*.suo
+*.user
+*.sln.docstates
+*.sdf
+*.opensdf
+*.db
+*.opendb
+.vs/
+*.vcxproj.filters
+*.vcxproj.user
+
+# 編譯輸出
+*.obj
+*.exe
+*.pdb
+*.ilk
+*.log
+*.idb
+*.res
+*.lastbuildstate
+*.tlog
+*.manifest
+
+# 測試輸出
+test_original.txt
+test_copy.txt
+test_output.txt
+test_empty.txt
+*.huf
+*_recovered.txt
+
+# 專案特定編譯檔案
+Project.lst
+Debug/
+Release/
+x64/
+x86/
+
+# Irvine 相關（如果不需要上傳）
+# Irvine32.inc
+# Irvine32.lib
+
+# 其他
+*.bak
+*.tmp
+Thumbs.db
+.DS_Store
