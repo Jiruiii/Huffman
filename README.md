@@ -1,67 +1,67 @@
 # ??? Huffman Coding File Compressor
 
-霍夫曼編碼檔案壓縮工具 - 組合語言期末專案
+霍夫曼編碼檔案壓縮工具 - 組合語言期末專案（人員一：GUI 與檔案 I/O 模組）
 
 ## ?? 專案簡介
 
-這是一個使用 **x86 組合語言 (MASM)** 實作的霍夫曼編碼檔案壓縮/解壓縮工具，具有完整的 Windows GUI 介面。
+這是一個使用 **x86 組合語言 (MASM)** 實作的霍夫曼編碼檔案壓縮/解壓縮工具。
 
-### ?? 主要功能
+**本模組（人員一）** 負責提供完整的 GUI 介面和檔案 I/O 基礎設施，供其他組員使用。
 
-- **壓縮檔案** - 使用霍夫曼編碼壓縮文字檔
-- **解壓縮檔案** - 完整還原壓縮檔
-- **壓縮率顯示** - 即時計算並顯示壓縮效果
-- **檔案驗證** - 自動檢查檔案完整性
-- **錯誤處理** - 完整的錯誤檢測與提示
+## ?? 人員一完成的功能
 
-## ??? 專案架構
+### ? Windows GUI 介面
+- 使用 Win32 API 建立圖形化介面
+- 包含「壓縮檔案」和「解壓縮檔案」兩個主要按鈕
+- 檔案選擇對話框（開啟檔案/儲存檔案）
+- 狀態訊息顯示區域
+- 壓縮率統計顯示
 
-### 四人分工模式
+### ? 檔案 I/O 函式庫（15 個函式）
 
-**人員一：GUI 與檔案 I/O 總管**
-- ? Windows 視窗介面
-- ? 檔案對話框
-- ? 基礎檔案讀寫函式（15 個 I/O 函式）
-- ?? 負責檔案：`HuffmanGUI.asm`
+#### 基礎檔案操作（9 個）
+```asm
+OpenFileForRead(path)  ; 開啟檔案讀取
+OpenFileForWrite(path)   ; 開啟檔案寫入
+ReadFileByte(handle)          ; 讀取單一位元組
+WriteFileByte(handle, byte)     ; 寫入單一位元組
+ReadFileBuffer(h, buf, size)    ; 緩衝區讀取
+WriteFileBuffer(h, buf, size)   ; 緩衝區寫入
+CloseFileHandle(handle)         ; 關閉檔案
+GetFileSizeEx(handle)     ; 獲得檔案大小
+SeekFile(handle, offset, mode)  ; 移動檔案指標
+```
 
-**人員二：資料分析師**
-- ?? 字元頻率統計
-- ?? 優先佇列實作
-- ?? 霍夫曼樹建立
-- ?? 負責檔案：`HuffmanTree.asm` (待實作)
+#### 進階工具函式（6 個）
+```asm
+ValidateInputFile(path)   ; 驗證檔案（大小、存在性）
+GetCompressedFileSize(path)     ; 獲得檔案大小
+CopyFileData(src, dest)         ; 複製檔案
+CompareFiles(file1, file2) ; 比對兩個檔案是否相同
+ClearBuffer(buffer, size); 清除緩衝區
+GenerateOutputFilename(in,out,ext) ; 自動產生輸出檔名
+```
 
-**人員三：編碼器**
-- ?? 產生編碼表
-- ?? 撰寫檔頭
-- ?? Bit-level 壓縮
-- ?? 負責檔案：`HuffmanCompress.asm` (待實作)
-
-**人員四：解碼器**
-- ?? 讀取檔頭
-- ?? 霍夫曼樹重建
-- ?? Bit-level 解壓縮
-- ?? 負責檔案：`HuffmanDecompress.asm` (待實作)
+### ? 錯誤處理
+- 檔案不存在檢測
+- 檔案太大檢測（限制 10MB）
+- 空檔案檢測
+- 權限錯誤處理
+- 友善的錯誤訊息提示
 
 ## ?? 檔案結構
 
 ```
 Project32_VS2022/
-├── HuffmanGUI.asm     # ? 主程式 (GUI + I/O) - 人員一
-├── HuffmanGUI.rc           # ? GUI 資源檔
-├── resource.h        # ? 資源定義
-├── HuffmanTree.asm         # ?? 霍夫曼樹建立 - 人員二
-├── HuffmanCompress.asm     # ?? 壓縮模組 - 人員三
-├── HuffmanDecompress.asm   # ?? 解壓縮模組 - 人員四
-├── test_input.txt          # 測試檔案
-├── Project.sln             # Visual Studio 方案
-├── Project.vcxproj         # 專案設定檔
+├── HuffmanGUI.asm      # ? 主程式（本模組）
+├── HuffmanGUI.rc       # ? GUI 資源檔
+├── resource.h          # ? 資源定義
+├── test_input.txt      # 測試用文字檔
+├── Project.sln         # Visual Studio 方案
+├── Project.vcxproj     # 專案設定檔
+├── .gitignore          # Git 忽略檔案
 └── README.md       # 本文件
 ```
-
-**圖示說明：**
-- ? 已完成
-- ?? 進行中
-- ? 待開始
 
 ## ??? 開發環境
 
@@ -81,263 +81,196 @@ Project32_VS2022/
 
 ### 編譯步驟
 
-#### 使用 Visual Studio
-
 1. 開啟專案檔 `Project.sln`
 2. 設定專案屬性：
    - Linker → Input → Additional Dependencies:
      ```
      kernel32.lib
-     user32.lib
-  comdlg32.lib
+ user32.lib
+     comdlg32.lib
      irvine32.lib
      ```
- - Linker → System → SubSystem: `Windows (/SUBSYSTEM:WINDOWS)`
+   - Linker → System → SubSystem: `Windows (/SUBSYSTEM:WINDOWS)`
 3. 按 `F5` 編譯並執行
-
-#### 使用命令列
-
-```batch
-ml /c /coff HuffmanGUI.asm
-rc HuffmanGUI.rc
-link /SUBSYSTEM:WINDOWS HuffmanGUI.obj HuffmanGUI.res kernel32.lib user32.lib comdlg32.lib irvine32.lib
-```
 
 ### 使用方法
 
 1. 執行 `HuffmanGUI.exe`
-2. **壓縮檔案**:
-   - 點擊「Compress File」
-   - 選擇要壓縮的文字檔
-   - 選擇輸出位置
-   - 查看壓縮率統計資訊
-3. **解壓縮檔案**:
-   - 點擊「Decompress File」
-   - 選擇 `.huf` 壓縮檔
-   - 選擇輸出位置
-   - 確認還原成功
+2. 介面說明：
+   - **Compress File** 按鈕：選擇要壓縮的文字檔
+   - **Decompress File** 按鈕：選擇要解壓縮的 .huf 檔
+   - **狀態顯示區**：顯示操作進度和壓縮統計
+   - **Exit** 按鈕：結束程式
 
-## ?? API 介面
+> **注意**：目前壓縮/解壓縮功能為模擬版本，實際演算法需要人員二、三、四實作。
 
-### 檔案 I/O 函式（9 個）
+## ?? API 使用說明
 
-```asm
-OpenFileForRead(path)       ; 開啟檔案讀取
-OpenFileForWrite(path)          ; 開啟檔案寫入
-ReadFileByte(handle)      ; 讀取單一位元組
-WriteFileByte(handle, byte)     ; 寫入單一位元組
-ReadFileBuffer(h, buf, size)    ; 緩衝區讀取
-WriteFileBuffer(h, buf, size)   ; 緩衝區寫入
-CloseFileHandle(handle)     ; 關閉檔案
-GetFileSizeEx(handle)           ; 獲得檔案大小
-SeekFile(handle, offset, mode)  ; 移動檔案指標
-```
+### 給其他組員的整合指南
 
-### 工具函式（6 個）
+其他組員可以呼叫以下函式來完成檔案操作：
+
+#### 範例 1：讀取檔案內容
 
 ```asm
-ValidateInputFile(path)        ; 驗證檔案
-GetCompressedFileSize(path)         ; 獲得檔案大小
-CopyFileData(src, dest)             ; 複製檔案
-CompareFiles(file1, file2)          ; 比對檔案
-ClearBuffer(buffer, size)     ; 清除緩衝區
-GenerateOutputFilename(in,out,ext)  ; 產生檔名
-```
-
-## ?? 整合指南
-
-### 人員二（樹建立）需提供：
-
-```asm
-; 函式原型
-BuildHuffmanTree PROTO, pszFilePath:PTR BYTE
-; 輸入：檔案路徑
-; 輸出：EAX = 樹根節點指標（NULL 表示失敗）
-
-; 節點結構
-HuffNode STRUCT
-    freq    DWORD ?     ; 頻率
-    char BYTE  ?   ; 字元（葉節點）
-    left    DWORD ?     ; 左子節點指標
-    right   DWORD ?     ; 右子節點指標
-HuffNode ENDS
-```
-
-**使用方式：**
-```asm
-; 在 HuffmanGUI.asm 的 CompressFile 中呼叫
-INVOKE BuildHuffmanTree, ADDR szInputFile
-mov pTreeRoot, eax
-.IF eax != NULL
-    ; 繼續壓縮流程
+; 開啟檔案
+INVOKE OpenFileForRead, ADDR szFilePath
+.IF eax == INVALID_HANDLE_VALUE
+    ; 錯誤處理
+    ret
 .ENDIF
+mov hFile, eax
+
+; 讀取資料
+read_loop:
+    INVOKE ReadFileByte, hFile
+    .IF eax == -1
+        jmp read_done
+    .ENDIF
+    ; 處理讀取的位元組（EAX）
+    jmp read_loop
+
+read_done:
+; 關閉檔案
+INVOKE CloseFileHandle, hFile
 ```
 
-### 人員三（壓縮）需提供：
+#### 範例 2：寫入檔案
 
 ```asm
-; 函式原型
-CompressWithHuffman PROTO, pTreeRoot:DWORD, pszInput:PTR BYTE, pszOutput:PTR BYTE
-; 輸入：樹根、輸入檔路徑、輸出檔路徑
-; 輸出：EAX = 1（成功）或 0（失敗）
+; 開啟檔案寫入
+INVOKE OpenFileForWrite, ADDR szOutputPath
+mov hFile, eax
+
+; 寫入資料
+mov al, 'A'  ; 要寫入的字元
+INVOKE WriteFileByte, hFile, al
+
+; 批次寫入
+INVOKE WriteFileBuffer, hFile, ADDR buffer, 100
+
+; 關閉檔案
+INVOKE CloseFileHandle, hFile
 ```
 
-**使用方式：**
+#### 範例 3：檔案驗證
+
 ```asm
-; 在 HuffmanGUI.asm 的 CompressFile 中呼叫
-INVOKE CompressWithHuffman, pTreeRoot, ADDR szInputFile, ADDR szOutputFile
-.IF eax != 0
-    ; 壓縮成功
-    INVOKE GetCompressedFileSize, ADDR szOutputFile
-    mov outputFileSize, eax
-    INVOKE DisplayCompressionStats
+; 驗證輸入檔案
+INVOKE ValidateInputFile, ADDR szFilePath
+.IF eax == 0
+    ; 檔案無效
+    ret
 .ENDIF
+mov fileSize, eax  ; EAX = 檔案大小
 ```
 
-### 人員四（解壓縮）需提供：
+## ?? GUI 介面預覽
 
-```asm
-; 函式原型
-DecompressHuffmanFile PROTO, pszInput:PTR BYTE, pszOutput:PTR BYTE
-; 輸入：壓縮檔路徑、輸出檔路徑
-; 輸出：EAX = 1（成功）或 0（失敗）
+```
+┌─────────────────────────────────────┐
+│   Huffman File Compressor v1.0  [X] │
+├─────────────────────────────────────┤
+│  Huffman Coding File Compression    │
+│     Tool        │
+│    │
+│  Select an operation:    │
+│      │
+│  ┌───────────────────────────────┐  │
+│  │      Compress File      │  │
+│  └───────────────────────────────┘  │
+│ │
+│  ┌───────────────────────────────┐  │
+│  │    Decompress File     │  │
+│  └───────────────────────────────┘│
+│  │
+│  Status:            │
+│  [Ready. Please select an operation.]│
+│       │
+│      ┌──────┐  │
+│  │ Exit │        │
+│      └──────┘        │
+└─────────────────────────────────────┘
 ```
 
-**使用方式：**
-```asm
-; 在 HuffmanGUI.asm 的 DecompressFile 中呼叫
-INVOKE DecompressHuffmanFile, ADDR szInputFile, ADDR szOutputFile
-.IF eax != 0
-    ; 解壓縮成功
-    INVOKE GetCompressedFileSize, ADDR szOutputFile
-    mov outputFileSize, eax
-    INVOKE DisplayDecompressionStats
-.ENDIF
-```
+## ?? 測試功能
 
-## ?? 檔頭格式規範
+### 已測試項目
 
-**重要：人員三和人員四必須遵守相同的格式！**
-
-建議的檔頭格式：
-```
-[4 bytes] 魔術數字: "HUFF"
-[4 bytes] 原始檔案大小
-[4 bytes] 樹節點數量
-[N bytes] 霍夫曼樹序列化資料（前序遍歷）
-[M bytes] 壓縮資料
-```
-
-## ?? 測試計畫
-
-### 單元測試
-
-1. **人員一測試**
-   - GUI 介面顯示
-   - 檔案選擇對話框
-   - 檔案讀寫功能
-
-2. **人員二測試**
-   - 頻率統計正確性
-   - 霍夫曼樹建立
-   - 使用簡單字串測試（如 "AAAAABBBCC"）
-
-3. **人員三測試**
-   - 編碼表生成
-   - 位元寫入正確性
-   - 檔頭寫入完整性
-
-4. **人員四測試**
-   - 檔頭讀取正確性
-   - 位元讀取
-   - 樹重建與遍歷
-
-### 整合測試
-
-1. **階段一**：人員一 + 人員二
-   - 測試：選檔案 → 成功建立霍夫曼樹
-
-2. **階段二**：加入人員三
-   - 測試：選檔案 → 成功產生壓縮檔
-
-3. **階段三**：加入人員四
-   - 測試：選壓縮檔 → 成功還原檔案
-
-4. **最終測試**
-   - 壓縮 A 檔案得到 B 檔案
-   - 解壓縮 B 檔案得到 C 檔案
-   - 驗證：A 和 C 檔案完全相同
-
-## ?? 當前狀態
-
-### 已實作功能（人員一）
-
-- ? Windows GUI 介面
-- ? 檔案開啟對話框
-- ? 檔案儲存對話框
-- ? 15 個完整的 I/O 函式
-- ? 檔案驗證與錯誤處理
-- ? 壓縮率計算與顯示
+- ? GUI 視窗正常顯示
+- ? 檔案開啟對話框運作正常
+- ? 檔案儲存對話框運作正常
+- ? 檔案讀取功能正常
+- ? 檔案寫入功能正常
+- ? 檔案大小限制檢查
+- ? 空檔案檢測
+- ? 檔案不存在錯誤處理
 - ? 狀態訊息更新
+- ? 壓縮率計算顯示
 
-### 待實作功能
+### 測試方法
 
-- ? 霍夫曼樹建立（人員二）
-- ? 壓縮模組（人員三）
-- ? 解壓縮模組（人員四）
+1. 選擇一個文字檔進行「壓縮」
+2. 程式會模擬壓縮並顯示統計資訊
+3. 選擇輸出位置
+4. 檢查所有檔案操作是否正常
 
-### 整合點說明
+## ?? 技術重點
 
-目前 `HuffmanGUI.asm` 中的 TODO 標記處是預留的整合點：
+### 使用的 Windows API
+- `CreateFileA` - 檔案開啟/建立
+- `ReadFile` - 檔案讀取
+- `WriteFile` - 檔案寫入
+- `GetFileSize` - 取得檔案大小
+- `SetFilePointer` - 移動檔案指標
+- `DialogBoxParamA` - 建立對話框
+- `GetOpenFileNameA` - 檔案開啟對話框
+- `GetSaveFileNameA` - 檔案儲存對話框
+- `MessageBoxA` - 訊息視窗
 
+### 組合語言技巧
+- STRUCT 定義（OPENFILENAME）
+- 區域變數（LOCAL）
+- 記憶體操作（ADDR, OFFSET, PTR）
+- 字串處理
+- 錯誤處理流程
+
+## ?? 整合點說明
+
+目前程式中預留了整合點，供其他組員加入壓縮/解壓縮演算法：
+
+**在 `CompressFile` 程序中：**
 ```asm
 ; TODO: 在這裡呼叫人員二、三的函式
 ; INVOKE BuildHuffmanTree, ADDR szInputFile
 ; mov pTreeRoot, eax
 ; .IF eax != NULL
-;   INVOKE CompressWithHuffman, pTreeRoot, ADDR szInputFile, ADDR szOutputFile
+;     INVOKE CompressWithHuffman, pTreeRoot, ADDR szInputFile, ADDR szOutputFile
 ;     ...
 ; .ENDIF
 ```
 
-## ?? 學習重點
+**在 `DecompressFile` 程序中：**
+```asm
+; TODO: 在這裡呼叫人員四的函式
+; INVOKE DecompressHuffmanFile, ADDR szInputFile, ADDR szOutputFile
+; .IF eax != 0
+;     ; 解壓縮成功
+;     ...
+; .ENDIF
+```
 
-### 組合語言技術
-- Windows API 呼叫
-- 記憶體管理
-- 資料結構實作
-- 位元運算
-
-### 演算法實作
-- 霍夫曼編碼
-- 優先佇列
-- 二元樹遍歷
-- 檔案格式設計
-
-### 軟體工程
-- 模組化設計
-- API 設計
-- 錯誤處理
-- 團隊協作開發
-
-## ?? 相關資源
-
-- **Irvine32 Library**: http://www.asmirvine.com/
-- **MASM 文件**: Microsoft Macro Assembler Reference
-- **霍夫曼編碼**: https://en.wikipedia.org/wiki/Huffman_coding
-
-## ?? 聯絡方式
+## ?? 專案資訊
 
 - **GitHub Repository**: https://github.com/Jiruiii/Huffman
 - **開發者**: jiruiii
 - **Email**: ray2017good@gmail.com
+- **角色**: 人員一 - GUI 與檔案 I/O 總管
 
 ## ?? 授權
 
 本專案為學習專案，僅供學習參考使用。
 
 ---
-
-? 如果這個專案對你有幫助，請給個 Star！
 
 **Made with ?? using x86 Assembly Language**
