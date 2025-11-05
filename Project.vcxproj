@@ -11,11 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="AddTwo.asm" />
-    <MASM Include="Example_ForPerson2.asm" />
     <MASM Include="HuffmanGUI.asm" />
-    <MASM Include="TestEnhanced.asm" />
-    <MASM Include="TestIO.asm" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="HuffmanGUI.rc" />
@@ -25,12 +21,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
-    <None Include="COMPLETION_REPORT.md" />
-    <None Include="INTEGRATION_GUIDE.md" />
-    <None Include="QUICK_REFERENCE.md" />
-    <None Include="QUICK_START.md" />
     <None Include="README.md" />
-    <None Include="README_MODULE1.md" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="test_input.txt" />

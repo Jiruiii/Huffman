@@ -1,8 +1,9 @@
 //==================================================
 // Huffman File Compressor - Resource File
-// 定義對話框界面
+// 定義對話框資源
 //==================================================
 
+#include <windows.h>
 #include "resource.h"
 
 #define IDD_MAIN_DIALOG     101
@@ -17,14 +18,14 @@ STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Huffman File Compressor"
 FONT 9, "Microsoft Sans Serif"
 BEGIN
-    LTEXT  "Huffman Coding File Compression Tool", IDC_STATIC, 14, 10, 292, 16, SS_CENTER
-    LTEXT           "Select an operation:", IDC_STATIC, 14, 35, 292, 10
+    LTEXT        "Huffman Coding File Compression Tool", IDC_STATIC, 14, 10, 292, 16, SS_CENTER
+    LTEXT    "Select an operation:", IDC_STATIC, 14, 35, 292, 10
     
-    PUSHBUTTON      "Compress File", IDC_BTN_COMPRESS, 40, 55, 240, 30, BS_PUSHBUTTON
-  PUSHBUTTON      "Decompress File", IDC_BTN_DECOMPRESS, 40, 95, 240, 30, BS_PUSHBUTTON
+    PUSHBUTTON   "Compress File", IDC_BTN_COMPRESS, 40, 55, 240, 30
+    PUSHBUTTON    "Decompress File", IDC_BTN_DECOMPRESS, 40, 95, 240, 30
     
-    LTEXT           "Status:", IDC_STATIC, 14, 140, 40, 10
-    EDITTEXT        IDC_EDIT_STATUS, 14, 152, 292, 14, ES_READONLY | ES_AUTOHSCROLL
+ LTEXT           "Status:", IDC_STATIC, 14, 140, 40, 10
+EDITTEXT  IDC_EDIT_STATUS, 14, 152, 292, 14, ES_READONLY | ES_AUTOHSCROLL
     
-    PUSHBUTTON      "Exit", IDC_BTN_EXIT, 130, 175, 60, 20, BS_PUSHBUTTON
+    PUSHBUTTON      "Exit", IDC_BTN_EXIT, 130, 175, 60, 20
 END
