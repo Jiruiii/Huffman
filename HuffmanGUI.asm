@@ -1,11 +1,11 @@
 ; ===============================================
 ; Huffman Coding File Compression Tool
-; ¤H­û¤@¡GGUI »PÀÉ®× I/O Á`ºŞ (Enhanced Version)
+; äººå“¡ä¸€ï¼šGUI èˆ‡æª”æ¡ˆ I/O ç¸½ç®¡ï¼ˆåŠ å¼·ç‰ˆï¼‰
 ; ===============================================
 INCLUDE Irvine32.inc
 INCLUDE macros.inc
 
-; Windows API «Å§i
+; Windows API å®£å‘Š
 GetModuleHandleA PROTO, lpModuleName:PTR BYTE
 DialogBoxParamA PROTO, hInstance:DWORD, lpTemplateName:DWORD, hWndParent:DWORD, lpDialogFunc:DWORD, dwInitParam:DWORD
 EndDialog PROTO, hDlg:DWORD, nResult:DWORD
@@ -14,7 +14,7 @@ SetWindowTextA PROTO, hWnd:DWORD, lpString:PTR BYTE
 GetOpenFileNameA PROTO, lpofn:PTR OPENFILENAME
 GetSaveFileNameA PROTO, lpofn:PTR OPENFILENAME
 
-; ÀÉ®× I/O API
+; æª”æ¡ˆ I/O API
 CreateFileA PROTO, lpFileName:PTR BYTE, dwDesiredAccess:DWORD, dwShareMode:DWORD,
     lpSecurityAttributes:DWORD, dwCreationDisposition:DWORD, dwFlagsAndAttributes:DWORD, hTemplateFile:DWORD
 ; ReadFile and WriteFile are already defined in Windows libraries
@@ -23,10 +23,10 @@ GetFileSize PROTO, hFile:DWORD, lpFileSizeHigh:DWORD
 ; SetFilePointer is already defined in Windows libraries
 MessageBoxA PROTO, hWnd:DWORD, lpText:PTR BYTE, lpCaption:PTR BYTE, uType:DWORD
 
-; String ¨ç¦¡
+; String è™•ç†
 wsprintfA PROTO C, lpOut:PTR BYTE, lpFmt:PTR BYTE, args:VARARG
 
-; ±`¼Æ©w¸q
+; å¸¸æ•¸å®šç¾©å€
 .const
 IDD_MAIN_DIALOG  EQU 101
 IDC_BTN_COMPRESS    EQU 1001
@@ -57,7 +57,7 @@ MB_ICONINFORMATION  EQU 40h
 MB_ICONERROR        EQU 10h
 MB_ICONWARNING    EQU 30h
 
-; OPENFILENAME µ²ºc
+; OPENFILENAME çµæ§‹
 OPENFILENAME STRUCT
     lStructSize       DWORD ?
     hwndOwner DWORD ?
@@ -82,7 +82,7 @@ OPENFILENAME STRUCT
 OPENFILENAME ENDS
 
 .data
-; ¥ş°ìÅÜ¼Æ
+; å…¨åŸŸè®Šæ•¸å€
 hInstance  DWORD ?
 hMainDialog     DWORD ?
 szInputFile     BYTE 260 DUP(0)
@@ -90,15 +90,17 @@ szOutputFile    BYTE 260 DUP(0)
 inputFileSize   DWORD ?
 outputFileSize  DWORD ?
 
-; ÀÉ®×¹LÂo¾¹
+; æª”æ¡ˆéæ¿¾å™¨
 szFilterCompress    BYTE "Text Files (*.txt)",0,"*.txt",0
       BYTE "All Files (*.*)",0,"*.*",0,0
-szFilterDecompress  BYTE "Huffman Files (*.huf)",0,"*.huf",0
+huffFilterStr       BYTE "Huffman Files (*.huff)",0,"*.huff",0
          BYTE "All Files (*.*)",0,"*.*",0,0
-szFilterSave        BYTE "Huffman Files (*.huf)",0,"*.huf",0
+szFilterDecompress  BYTE "Huffman Files (*.huff)",0,"*.huff",0
+         BYTE "All Files (*.*)",0,"*.*",0,0
+szFilterSave        BYTE "Huffman Files (*.huff)",0,"*.huff",0
             BYTE "Text Files (*.txt)",0,"*.txt",0,0
 
-; °T®§¦r¦ê
+; æ–‡å­—è¨Šæ¯
 szAppTitle  BYTE "Huffman File Compressor v1.0",0
 szCompressTitle     BYTE "Select File to Compress",0
 szDecompressTitle   BYTE "Select File to Decompress",0
@@ -114,23 +116,23 @@ szFileNotExist      BYTE "File does not exist!",0
 szFileTooLarge  BYTE "File is too large (max 10MB)!",0
 szEmptyFile         BYTE "File is empty!",0
 
-; ²Î­p°T®§®æ¦¡¦r¦ê
+; å£“ç¸®ç‡è¨Šæ¯æ ¼å¼å­—ä¸²
 szStatsFormat       BYTE "Input: %d bytes | Output: %d bytes | Compression: %d%%",0
 szDecompStatsFormat BYTE "Decompressed: %d bytes from %d bytes compressed file",0
 szReadyWithFile     BYTE "Selected: %s (%d bytes)",0
 
-; ½w½Ä°Ï
+; ç‹€æ…‹æš«å­˜å€
 szStatusBuffer      BYTE 512 DUP(0)
 szMessageBuffer  BYTE 512 DUP(0)
 
-; °ÆÀÉ¦W¸ê®Æ
-hufExt BYTE ".huf",0
+; å‰¯æª”åå­—ä¸²
+hufExt BYTE ".huff",0
 txtExt BYTE ".txt",0
 
-; ´ú¸Õ°T®§
+; é™¤éŒ¯è¨Šæ¯
 szDebugMsg BYTE "Building Huffman Tree...",0
 
-; «e¦V«Å§i (Forward Declarations)
+; å‰ç½®å®£å‘Š (Forward Declarations)
 DlgProc PROTO, hDlg:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWORD
 CompressFile PROTO
 DecompressFile PROTO
@@ -138,6 +140,7 @@ SetupOpenFileStruct PROTO, pOfn:PTR OPENFILENAME, pFile:PTR BYTE, pFilter:PTR BY
 ValidateInputFile PROTO, pszFilePath:PTR BYTE
 DisplayCompressionStats PROTO
 DisplayDecompressionStats PROTO
+DecompressHuffmanFile PROTO, pszInputFile:PTR BYTE, pszOutputFile:PTR BYTE
 SelectSaveFile PROTO
 SelectSaveFileDecompress PROTO
 GenerateOutputFilename PROTO, pszInput:PTR BYTE, pszOutput:PTR BYTE, pszExtension:PTR BYTE
@@ -160,20 +163,20 @@ CompareFiles PROTO, pszFile1:PTR BYTE, pszFile2:PTR BYTE
 .code
 
 ;-----------------------------------------------
-; ¥Dµ{¦¡¶i¤JÂI
+; ç¨‹å¼é€²å…¥é»
 ;-----------------------------------------------
 main PROC
     INVOKE GetModuleHandleA, NULL
     mov hInstance, eax
     
-    ; Åã¥Ü¥D¹ï¸Ü®Ø
+    ; ï¿½ï¿½Ü¥Dï¿½ï¿½Ü®ï¿½
     INVOKE DialogBoxParamA, hInstance, IDD_MAIN_DIALOG, NULL, ADDR DlgProc, 0
     
     INVOKE ExitProcess, 0
 main ENDP
 
 ;-----------------------------------------------
-; ¹ï¸Ü®Ø³B²zµ{§Ç
+; ä¸»è¦–çª—è¨Šæ¯è™•ç†ç¨‹åº
 ;-----------------------------------------------
 DlgProc PROC, hDlg:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWORD
     .IF uMsg == WM_INITDIALOG
@@ -205,67 +208,67 @@ DlgProc PROC, hDlg:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWORD
 DlgProc ENDP
 
 ;-----------------------------------------------
-; À£ÁYÀÉ®×¬yµ{¡]¼W±jª©¡^
+; å£“ç¸®æª”æ¡ˆä¸»ç¨‹åº
 ;-----------------------------------------------
 CompressFile PROC
     LOCAL ofn:OPENFILENAME
     LOCAL hFile:DWORD
     
-    ; ²M°£ÀÉ®×¸ô®|½w½Ä°Ï
+    ; ï¿½Mï¿½ï¿½ï¿½É®×¸ï¿½ï¿½|ï¿½wï¿½Ä°ï¿½
     INVOKE ClearBuffer, ADDR szInputFile, 260
     INVOKE ClearBuffer, ADDR szOutputFile, 260
     
-    ; ³]©w OPENFILENAME µ²ºc
+    ; ï¿½]ï¿½w OPENFILENAME ï¿½ï¿½ï¿½c
     INVOKE SetupOpenFileStruct, ADDR ofn, ADDR szInputFile, ADDR szFilterCompress, ADDR szCompressTitle
  
-    ; Åã¥Ü¶}±ÒÀÉ®×¹ï¸Ü®Ø
+    ; ï¿½ï¿½Ü¶}ï¿½ï¿½ï¿½É®×¹ï¿½Ü®ï¿½
     INVOKE GetOpenFileNameA, ADDR ofn
     .IF eax == 0
         ret
     .ENDIF
 
-    ; ÅçÃÒÀÉ®×
+    ; ï¿½ï¿½ï¿½ï¿½ï¿½É®ï¿½
     INVOKE ValidateInputFile, ADDR szInputFile
     .IF eax == 0
   ret
     .ENDIF
     mov inputFileSize, eax
     
-    ; Åã¥ÜÀÉ®×¸ê°T
+    ; ï¿½ï¿½ï¿½ï¿½É®×¸ï¿½T
     INVOKE wsprintfA, ADDR szStatusBuffer, ADDR szReadyWithFile, ADDR szInputFile, inputFileSize
     INVOKE UpdateStatus, ADDR szStatusBuffer
     
-    ; Åã¥Ü¿é¥XÀÉ®×
+    ; ï¿½ï¿½Ü¿ï¿½Xï¿½É®ï¿½
     call SelectSaveFile
     .IF eax == 0
         ret
     .ENDIF
     
-    ; §ó·sª¬ºA
+    ; ï¿½ï¿½sï¿½ï¿½ï¿½A
     INVOKE UpdateStatus, ADDR szCompressing
     
-    ; TODO: ¦b³o¸Ì©I¥s¤H­û¤G¡B¤Tªº¨ç¦¡
+    ; TODO: ï¿½bï¿½oï¿½Ì©Iï¿½sï¿½Hï¿½ï¿½ï¿½Gï¿½Bï¿½Tï¿½ï¿½ï¿½ç¦¡
     ; INVOKE BuildHuffmanTree, ADDR szInputFile
     ; mov pTreeRoot, eax
     ; .IF eax != NULL
     ;     INVOKE CompressWithHuffman, pTreeRoot, ADDR szInputFile, ADDR szOutputFile
     ;     .IF eax != 0
-    ;         ; À£ÁY¦¨¥\¡AÅã¥Ü²Î­p
+    ;         ; ï¿½ï¿½ï¿½Yï¿½ï¿½ï¿½\ï¿½Aï¿½ï¿½Ü²Î­p
     ;         INVOKE GetCompressedFileSize, ADDR szOutputFile
     ;      mov outputFileSize, eax
     ;  INVOKE DisplayCompressionStats
     ;     .ENDIF
     ; .ENDIF
     
-    ; ¼ÒÀÀÀ£ÁY¡]¼È®É¡^
+    ; ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Yï¿½]ï¿½È®É¡^
     mov eax, inputFileSize
-    shr eax, 1  ; °²³]À£ÁY²v 50%
+    shr eax, 1  ; ï¿½ï¿½ï¿½]ï¿½ï¿½ï¿½Yï¿½v 50%
     mov outputFileSize, eax
     
-    ; Åã¥Ü²Î­p¸ê°T
+    ; ï¿½ï¿½Ü²Î­pï¿½ï¿½T
     call DisplayCompressionStats
     
-    ; Åã¥Ü§¹¦¨°T®§®Ø
+    ; ï¿½ï¿½Ü§ï¿½ï¿½ï¿½ï¿½Tï¿½ï¿½ï¿½ï¿½
     INVOKE MessageBoxA, hMainDialog, ADDR szSuccess, ADDR szAppTitle, MB_OK OR MB_ICONINFORMATION
     INVOKE UpdateStatus, ADDR szStatus
     
@@ -273,63 +276,64 @@ CompressFile PROC
 CompressFile ENDP
 
 ;-----------------------------------------------
-; ¸ÑÀ£ÁYÀÉ®×¬yµ{¡]¼W±jª©¡^
+; è§£å£“ç¸®æª”æ¡ˆä¸»ç¨‹åº
 ;-----------------------------------------------
 DecompressFile PROC
     LOCAL ofn:OPENFILENAME
     LOCAL hFile:DWORD
     
-    ; ²M°£ÀÉ®×¸ô®|½w½Ä°Ï
+    ; ï¿½Mï¿½ï¿½ï¿½É®×¸ï¿½ï¿½|ï¿½wï¿½Ä°ï¿½
     INVOKE ClearBuffer, ADDR szInputFile, 260
     INVOKE ClearBuffer, ADDR szOutputFile, 260
     
-    ; ³]©w OPENFILENAME µ²ºc
+    ; ï¿½]ï¿½w OPENFILENAME ï¿½ï¿½ï¿½c
     INVOKE SetupOpenFileStruct, ADDR ofn, ADDR szInputFile, ADDR szFilterDecompress, ADDR szDecompressTitle
  
-    ; Åã¥Ü¶}±ÒÀÉ®×¹ï¸Ü®Ø
+    ; ï¿½ï¿½Ü¶}ï¿½ï¿½ï¿½É®×¹ï¿½Ü®ï¿½
     INVOKE GetOpenFileNameA, ADDR ofn
     .IF eax == 0
         ret
     .ENDIF
     
-    ; ÅçÃÒÀÉ®×
+    ; ï¿½ï¿½ï¿½ï¿½ï¿½É®ï¿½
     INVOKE ValidateInputFile, ADDR szInputFile
     .IF eax == 0
       ret
     .ENDIF
     mov inputFileSize, eax
     
-    ; Åã¥ÜÀÉ®×¸ê°T
+    ; ï¿½ï¿½ï¿½ï¿½É®×¸ï¿½T
     INVOKE wsprintfA, ADDR szStatusBuffer, ADDR szReadyWithFile, ADDR szInputFile, inputFileSize
     INVOKE UpdateStatus, ADDR szStatusBuffer
     
-    ; Åã¥Ü¿é¥XÀÉ®×
+    ; ï¿½ï¿½Ü¿ï¿½Xï¿½É®ï¿½
     call SelectSaveFileDecompress
     .IF eax == 0
         ret
     .ENDIF
     
-    ; §ó·sª¬ºA
+    ; ï¿½ï¿½sï¿½ï¿½ï¿½A
     INVOKE UpdateStatus, ADDR szDecompressing
     
-    ; TODO: ¦b³o¸Ì©I¥s¤H­û¥|ªº¨ç¦¡
-    ; INVOKE DecompressHuffmanFile, ADDR szInputFile, ADDR szOutputFile
-    ; .IF eax != 0
-    ;     ; ¸ÑÀ£ÁY¦¨¥\¡AÅã¥Ü²Î­p
-    ;     INVOKE GetCompressedFileSize, ADDR szOutputFile
-    ;     mov outputFileSize, eax
-    ;     INVOKE DisplayDecompressionStats
-    ; .ENDIF
+
+    ; å‘¼å«äººå“¡å››è§£ç¢¼ä¸»ç¨‹å¼
+    INVOKE DecompressHuffmanFile, ADDR szInputFile, ADDR szOutputFile
+    .IF eax != 0
+        ; è§£å£“ç¸®æˆåŠŸï¼Œé¡¯ç¤ºçµ±è¨ˆ
+        INVOKE GetCompressedFileSize, ADDR szOutputFile
+        mov outputFileSize, eax
+        INVOKE DisplayDecompressionStats
+    .ENDIF
     
-    ; ¼ÒÀÀ¸ÑÀ£ÁY¡]¼È®É¡^
+    ; ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Yï¿½]ï¿½È®É¡^
     mov eax, inputFileSize
-shl eax, 1  ; °²³]ÁÙ­ì¬° 2 ­¿
+shl eax, 1  ; ï¿½ï¿½ï¿½]ï¿½Ù­ì¬° 2 ï¿½ï¿½
     mov outputFileSize, eax
     
-    ; Åã¥Ü²Î­p¸ê°T
+    ; ï¿½ï¿½Ü²Î­pï¿½ï¿½T
     call DisplayDecompressionStats
     
-    ; Åã¥Ü§¹¦¨°T®§®Ø
+    ; ï¿½ï¿½Ü§ï¿½ï¿½ï¿½ï¿½Tï¿½ï¿½ï¿½ï¿½
   INVOKE MessageBoxA, hMainDialog, ADDR szSuccess, ADDR szAppTitle, MB_OK OR MB_ICONINFORMATION
     INVOKE UpdateStatus, ADDR szStatus
     
@@ -337,7 +341,7 @@ shl eax, 1  ; °²³]ÁÙ­ì¬° 2 ­¿
 DecompressFile ENDP
 
 ;-----------------------------------------------
-; ³]©w OPENFILENAME µ²ºcªº»²§U¨ç¦¡
+; è¨­å®š OPENFILENAME çµæ§‹å…§å®¹
 ;-----------------------------------------------
 SetupOpenFileStruct PROC USES ebx, pOfn:PTR OPENFILENAME, pFile:PTR BYTE, pFilter:PTR BYTE, pTitle:PTR BYTE
     mov ebx, pOfn
@@ -373,14 +377,14 @@ SetupOpenFileStruct PROC USES ebx, pOfn:PTR OPENFILENAME, pFile:PTR BYTE, pFilte
 SetupOpenFileStruct ENDP
 
 ;-----------------------------------------------
-; ÅçÃÒ¿é¤JÀÉ®×
-; ¶Ç¦^¡GEAX = ÀÉ®×¤j¤p¡]¦¨¥\¡^©Î 0¡]¥¢±Ñ¡^
+; é©—è­‰è¼¸å…¥æª”æ¡ˆ
+; å›å‚³ï¼šEAX = æª”æ¡ˆå¤§å°ï¼ˆå¤±æ•—å‰‡ç‚º 0ï¼‰
 ;-----------------------------------------------
 ValidateInputFile PROC USES ebx, pszFilePath:PTR BYTE
     LOCAL hFile:DWORD
     LOCAL fileSize:DWORD
     
-    ; ¶}±ÒÀÉ®×
+    ; ï¿½}ï¿½ï¿½ï¿½É®ï¿½
     INVOKE OpenFileForRead, pszFilePath
     .IF eax == INVALID_HANDLE_VALUE
         INVOKE MessageBoxA, hMainDialog, ADDR szFileError, ADDR szError, MB_OK OR MB_ICONERROR
@@ -389,7 +393,7 @@ ValidateInputFile PROC USES ebx, pszFilePath:PTR BYTE
     .ENDIF
     mov hFile, eax
     
-    ; ¨ú±oÀÉ®×¤j¤p
+    ; ï¿½ï¿½ï¿½oï¿½É®×¤jï¿½p
     INVOKE GetFileSize, hFile, NULL
     .IF eax == -1
         INVOKE CloseHandle, hFile
@@ -399,7 +403,7 @@ ValidateInputFile PROC USES ebx, pszFilePath:PTR BYTE
     .ENDIF
     mov fileSize, eax
     
-    ; ÀË¬d¬O§_¬°ªÅÀÉ®×
+    ; ï¿½Ë¬dï¿½Oï¿½_ï¿½ï¿½ï¿½ï¿½ï¿½É®ï¿½
     .IF fileSize == 0
         INVOKE CloseHandle, hFile
         INVOKE MessageBoxA, hMainDialog, ADDR szEmptyFile, ADDR szError, MB_OK OR MB_ICONWARNING
@@ -407,7 +411,7 @@ ValidateInputFile PROC USES ebx, pszFilePath:PTR BYTE
         ret
     .ENDIF
     
-    ; ÀË¬dÀÉ®×¤j¤p¡]­­¨î 10MB¡^
+    ; ï¿½Ë¬dï¿½É®×¤jï¿½pï¿½]ï¿½ï¿½ï¿½ï¿½ 10MBï¿½^
     .IF fileSize > 10485760
         INVOKE CloseHandle, hFile
         INVOKE MessageBoxA, hMainDialog, ADDR szFileTooLarge, ADDR szError, MB_OK OR MB_ICONWARNING
@@ -421,12 +425,12 @@ ValidateInputFile PROC USES ebx, pszFilePath:PTR BYTE
 ValidateInputFile ENDP
 
 ;-----------------------------------------------
-; Åã¥ÜÀ£ÁY²Î­p¸ê°T
+; é¡¯ç¤ºå£“ç¸®ç‡è¨Šæ¯
 ;-----------------------------------------------
 DisplayCompressionStats PROC USES eax ebx ecx edx
     LOCAL compressionRatio:DWORD
     
-    ; ­pºâÀ£ÁY²v = (1 - compressed/original) * 100
+    ; ï¿½pï¿½ï¿½ï¿½ï¿½ï¿½Yï¿½v = (1 - compressed/original) * 100
     mov eax, outputFileSize
     mov ebx, 100
     mul ebx
@@ -441,12 +445,12 @@ DisplayCompressionStats PROC USES eax ebx ecx edx
         mov compressionRatio, 0
     .ENDIF
     
-    ; ®æ¦¡¤Æ°T®§
+    ; ï¿½æ¦¡ï¿½Æ°Tï¿½ï¿½
     INVOKE wsprintfA, ADDR szStatusBuffer, ADDR szStatsFormat, 
        inputFileSize, outputFileSize, compressionRatio
     INVOKE UpdateStatus, ADDR szStatusBuffer
     
-    ; ¤]Åã¥Ü¦b°T®§®Ø¤¤
+    ; ï¿½]ï¿½ï¿½Ü¦bï¿½Tï¿½ï¿½ï¿½Ø¤ï¿½
     INVOKE wsprintfA, ADDR szMessageBuffer, ADDR szStatsFormat, 
            inputFileSize, outputFileSize, compressionRatio
     INVOKE MessageBoxA, hMainDialog, ADDR szMessageBuffer, ADDR szAppTitle, MB_OK OR MB_ICONINFORMATION
@@ -455,7 +459,7 @@ DisplayCompressionStats PROC USES eax ebx ecx edx
 DisplayCompressionStats ENDP
 
 ;-----------------------------------------------
-; Åã¥Ü¸ÑÀ£ÁY²Î­p¸ê°T
+; é¡¯ç¤ºè§£å£“ç¸®è¨Šæ¯
 ;-----------------------------------------------
 DisplayDecompressionStats PROC
     INVOKE wsprintfA, ADDR szStatusBuffer, ADDR szDecompStatsFormat, 
@@ -465,41 +469,41 @@ DisplayDecompressionStats PROC
 DisplayDecompressionStats ENDP
 
 ;-----------------------------------------------
-; ¿ï¾ÜÀx¦sÀÉ®×¡]À£ÁY¥Î¡^
+; é¸æ“‡å£“ç¸®æª”æ¡ˆå„²å­˜ä½ç½®
 ;-----------------------------------------------
 SelectSaveFile PROC
     LOCAL ofn:OPENFILENAME
     
-    ; ¦Û°Ê²£¥Í¿é¥XÀÉ¦W
+    ; ï¿½Û°Ê²ï¿½ï¿½Í¿ï¿½Xï¿½É¦W
     INVOKE GenerateOutputFilename, ADDR szInputFile, ADDR szOutputFile, ADDR hufExt
     
-    ; ³]©w OPENFILENAME µ²ºc
+    ; ï¿½]ï¿½w OPENFILENAME ï¿½ï¿½ï¿½c
     INVOKE SetupSaveFileStruct, ADDR ofn, ADDR szOutputFile, ADDR szFilterSave
     
-    ; Åã¥ÜÀx¦sÀÉ®×¹ï¸Ü®Ø
+    ; ï¿½ï¿½ï¿½ï¿½xï¿½sï¿½É®×¹ï¿½Ü®ï¿½
     INVOKE GetSaveFileNameA, ADDR ofn
     ret
 SelectSaveFile ENDP
 
 ;-----------------------------------------------
-; Åã¥ÜÀx¦sÀÉ®×¡]¸ÑÀ£ÁY¡^
+; é¸æ“‡è§£å£“ç¸®æª”æ¡ˆå„²å­˜ä½ç½®
 ;-----------------------------------------------
 SelectSaveFileDecompress PROC
     LOCAL ofn:OPENFILENAME
     
-    ; ¦Û°Ê²£¥Í¿é¥XÀÉ¦W
+    ; ï¿½Û°Ê²ï¿½ï¿½Í¿ï¿½Xï¿½É¦W
     INVOKE GenerateOutputFilename, ADDR szInputFile, ADDR szOutputFile, ADDR txtExt
 
-    ; ³]©w OPENFILENAME µ²ºc
+    ; ï¿½]ï¿½w OPENFILENAME ï¿½ï¿½ï¿½c
     INVOKE SetupSaveFileStruct, ADDR ofn, ADDR szOutputFile, ADDR szFilterSave
     
-    ; Åã¥ÜÀx¦sÀÉ®×¹ï¸Ü®Ø
+    ; ï¿½ï¿½ï¿½ï¿½xï¿½sï¿½É®×¹ï¿½Ü®ï¿½
     INVOKE GetSaveFileNameA, ADDR ofn
     ret
 SelectSaveFileDecompress ENDP
 
 ;-----------------------------------------------
-; ²£¥Í¿é¥XÀÉ¦W
+; ç”¢ç”Ÿè¼¸å‡ºæª”å
 ;-----------------------------------------------
 GenerateOutputFilename PROC USES esi edi, pszInput:PTR BYTE, pszOutput:PTR BYTE, pszExtension:PTR BYTE
     LOCAL lastDotPos:DWORD
@@ -508,7 +512,7 @@ GenerateOutputFilename PROC USES esi edi, pszInput:PTR BYTE, pszOutput:PTR BYTE,
     mov edi, pszOutput
     mov lastDotPos, 0
     
-    ; ½Æ»sÀÉ¦W¨Ã§ä¨ì³Ì«á¤@­ÓÂIªº¦ì¸m
+    ; ï¿½Æ»sï¿½É¦Wï¿½Ã§ï¿½ï¿½Ì«ï¿½@ï¿½ï¿½ï¿½Iï¿½ï¿½ï¿½ï¿½m
     xor ecx, ecx
 copy_filename:
     lodsb
@@ -523,13 +527,13 @@ not_dot:
     jmp copy_filename
     
 copy_done:
-    ; ¦pªG§ä¨ìÂI¡A¦^¨ì¨º­Ó¦ì¸m
+    ; ï¿½pï¿½Gï¿½ï¿½ï¿½ï¿½Iï¿½Aï¿½^ï¿½ì¨ºï¿½Ó¦ï¿½m
     .IF lastDotPos != 0
         mov edi, pszOutput
         add edi, lastDotPos
     .ENDIF
  
-    ; ªş¥[·s°ÆÀÉ¦W
+    ; ï¿½ï¿½ï¿½[ï¿½sï¿½ï¿½ï¿½É¦W
     mov esi, pszExtension
 append_ext:
     lodsb
@@ -541,7 +545,7 @@ append_ext:
 GenerateOutputFilename ENDP
 
 ;-----------------------------------------------
-; ³]©wÀx¦sÀÉ®×µ²ºc
+; è¨­å®šå„²å­˜æª”æ¡ˆå°è©±æ¡†çµæ§‹
 ;-----------------------------------------------
 SetupSaveFileStruct PROC USES ebx, pOfn:PTR OPENFILENAME, pFile:PTR BYTE, pFilter:PTR BYTE
     mov ebx, pOfn
@@ -577,7 +581,7 @@ SetupSaveFileStruct PROC USES ebx, pOfn:PTR OPENFILENAME, pFile:PTR BYTE, pFilte
 SetupSaveFileStruct ENDP
 
 ;-----------------------------------------------
-; ²MªÅ½w½Ä°Ï
+; æ¸…ç©ºç·©è¡å€
 ;-----------------------------------------------
 ClearBuffer PROC, pBuffer:PTR BYTE, bufSize:DWORD
     push edi
@@ -592,7 +596,7 @@ ClearBuffer PROC, pBuffer:PTR BYTE, bufSize:DWORD
 ClearBuffer ENDP
 
 ;-----------------------------------------------
-; §ó·sª¬ºA°T®§
+; æ›´æ–°ç‹€æ…‹è¨Šæ¯
 ;-----------------------------------------------
 UpdateStatus PROC USES eax, pszMessage:PTR BYTE
     INVOKE GetDlgItem, hMainDialog, IDC_EDIT_STATUS
@@ -601,7 +605,7 @@ UpdateStatus PROC USES eax, pszMessage:PTR BYTE
 UpdateStatus ENDP
 
 ;-----------------------------------------------
-; ¨ú±oÀ£ÁYÀÉ®×¤j¤p¡]¨Ñ¥~³¡©I¥s¡^
+; å–å¾—å£“ç¸®æª”æ¡ˆå¤§å°ï¼ˆè‹¥å¤±æ•—å›å‚³ 0ï¼‰
 ;-----------------------------------------------
 GetCompressedFileSize PROC, pszFilePath:PTR BYTE
     LOCAL hFile:DWORD
@@ -623,11 +627,11 @@ GetCompressedFileSize PROC, pszFilePath:PTR BYTE
 GetCompressedFileSize ENDP
 
 ;===============================================
-; ¥H¤U¬O¤½¥Î I/O ¨ç¦¡¡A¨Ñ¨ä¥L²Õ­û¨Ï¥Î
+; ä»¥ä¸‹ç‚ºé€šç”¨ I/O å‡½å¼ï¼Œä¾›å…¶ä»–æ¨¡çµ„å‘¼å«
 ;===============================================
 
 ;-----------------------------------------------
-; OpenFileForRead
+; é–‹å•Ÿæª”æ¡ˆï¼ˆè®€å–ï¼‰
 ;-----------------------------------------------
 OpenFileForRead PROC, pszFilePath:PTR BYTE
     INVOKE CreateFileA, pszFilePath, GENERIC_READ, 0, NULL, 
@@ -636,7 +640,7 @@ OpenFileForRead PROC, pszFilePath:PTR BYTE
 OpenFileForRead ENDP
 
 ;-----------------------------------------------
-; OpenFileForWrite
+; é–‹å•Ÿæª”æ¡ˆï¼ˆå¯«å…¥ï¼‰
 ;-----------------------------------------------
 OpenFileForWrite PROC, pszFilePath:PTR BYTE
     INVOKE CreateFileA, pszFilePath, GENERIC_WRITE, 0, NULL,
@@ -645,7 +649,7 @@ OpenFileForWrite PROC, pszFilePath:PTR BYTE
 OpenFileForWrite ENDP
 
 ;-----------------------------------------------
-; ReadFileByte
+; è®€å–å–®ä¸€ä½å…ƒçµ„
 ;-----------------------------------------------
 ReadFileByte PROC USES ebx ecx edx, hFile:DWORD
     LOCAL buffer:BYTE
@@ -667,7 +671,7 @@ ReadFileByte PROC USES ebx ecx edx, hFile:DWORD
 ReadFileByte ENDP
 
 ;-----------------------------------------------
-; WriteFileByte
+; å¯«å…¥å–®ä¸€ä½å…ƒçµ„
 ;-----------------------------------------------
 WriteFileByte PROC USES ebx ecx edx, hFile:DWORD, byteVal:BYTE
     LOCAL bytesWritten:DWORD
@@ -677,7 +681,7 @@ WriteFileByte PROC USES ebx ecx edx, hFile:DWORD, byteVal:BYTE
 WriteFileByte ENDP
 
 ;-----------------------------------------------
-; ReadFileBuffer
+; è®€å–ç·©è¡å€
 ;-----------------------------------------------
 ReadFileBuffer PROC, hFile:DWORD, pBuffer:PTR BYTE, nBytes:DWORD
     LOCAL bytesRead:DWORD
@@ -693,7 +697,7 @@ ReadFileBuffer PROC, hFile:DWORD, pBuffer:PTR BYTE, nBytes:DWORD
 ReadFileBuffer ENDP
 
 ;-----------------------------------------------
-; WriteFileBuffer
+; å¯«å…¥ç·©è¡å€
 ;-----------------------------------------------
 WriteFileBuffer PROC, hFile:DWORD, pBuffer:PTR BYTE, nBytes:DWORD
     LOCAL bytesWritten:DWORD
@@ -709,7 +713,7 @@ WriteFileBuffer PROC, hFile:DWORD, pBuffer:PTR BYTE, nBytes:DWORD
 WriteFileBuffer ENDP
 
 ;-----------------------------------------------
-; CloseFileHandle
+; é—œé–‰æª”æ¡ˆ
 ;-----------------------------------------------
 CloseFileHandle PROC, hFile:DWORD
     INVOKE CloseHandle, hFile
@@ -717,7 +721,7 @@ CloseFileHandle PROC, hFile:DWORD
 CloseFileHandle ENDP
 
 ;-----------------------------------------------
-; GetFileSizeEx
+; å–å¾—æª”æ¡ˆå¤§å°
 ;-----------------------------------------------
 GetFileSizeEx PROC, hFile:DWORD
     INVOKE GetFileSize, hFile, NULL
@@ -725,7 +729,7 @@ GetFileSizeEx PROC, hFile:DWORD
 GetFileSizeEx ENDP
 
 ;-----------------------------------------------
-; SeekFile
+; ç§»å‹•æª”æ¡ˆæŒ‡æ¨™
 ;-----------------------------------------------
 SeekFile PROC, hFile:DWORD, distanceToMove:SDWORD, moveMethod:DWORD
     INVOKE SetFilePointer, hFile, distanceToMove, NULL, moveMethod
@@ -733,13 +737,13 @@ SeekFile PROC, hFile:DWORD, distanceToMove:SDWORD, moveMethod:DWORD
 SeekFile ENDP
 
 ;===============================================
-; ·s¼W¡GÃB¥~ªº¤u¨ã¨ç¦¡
+; å…¶ä»–å·¥å…·å‡½å¼
 ;===============================================
 
 ;-----------------------------------------------
-; CopyFile - ½Æ»sÀÉ®×¡]¨Ñ´ú¸Õ¨Ï¥Î¡^
-; °Ñ¼Æ¡GpszSource, pszDest
-; ¶Ç¦^¡GEAX = 1 (¦¨¥\) ©Î 0 (¥¢±Ñ)
+; CopyFile - è¤‡è£½æª”æ¡ˆï¼ˆä¾›æ¸¬è©¦ç”¨ï¼‰
+; åƒæ•¸ï¼špszSource, pszDest
+; å›å‚³ï¼šEAX = 1 (æˆåŠŸ) æˆ– 0 (å¤±æ•—)
 ;-----------------------------------------------
 CopyFileData PROC USES ebx esi edi, pszSource:PTR BYTE, pszDest:PTR BYTE
     LOCAL hFileIn:DWORD
@@ -747,7 +751,7 @@ CopyFileData PROC USES ebx esi edi, pszSource:PTR BYTE, pszDest:PTR BYTE
     LOCAL buffer[4096]:BYTE
     LOCAL bytesRead:DWORD
     
-    ; ¶}±Ò¨Ó·½ÀÉ®×
+    ; ï¿½}ï¿½Ò¨Ó·ï¿½ï¿½É®ï¿½
     INVOKE OpenFileForRead, pszSource
     .IF eax == INVALID_HANDLE_VALUE
         xor eax, eax
@@ -755,7 +759,7 @@ CopyFileData PROC USES ebx esi edi, pszSource:PTR BYTE, pszDest:PTR BYTE
     .ENDIF
     mov hFileIn, eax
 
-    ; ¶}±Ò¥ØªºÀÉ®×
+    ; ï¿½}ï¿½Ò¥Øªï¿½ï¿½É®ï¿½
 INVOKE OpenFileForWrite, pszDest
     .IF eax == INVALID_HANDLE_VALUE
         INVOKE CloseFileHandle, hFileIn
@@ -764,7 +768,7 @@ INVOKE OpenFileForWrite, pszDest
     .ENDIF
     mov hFileOut, eax
     
-    ; ½Æ»s¸ê®Æ
+    ; ï¿½Æ»sï¿½ï¿½ï¿½
 copy_loop:
     INVOKE ReadFileBuffer, hFileIn, ADDR buffer, 4096
     mov bytesRead, eax
@@ -774,7 +778,7 @@ copy_loop:
     
     INVOKE WriteFileBuffer, hFileOut, ADDR buffer, bytesRead
     .IF eax != bytesRead
-        ; ¼g¤J¿ù»~
+        ; ï¿½gï¿½Jï¿½ï¿½ï¿½~
         INVOKE CloseFileHandle, hFileIn
    INVOKE CloseFileHandle, hFileOut
         xor eax, eax
@@ -791,9 +795,9 @@ copy_done:
 CopyFileData ENDP
 
 ;-----------------------------------------------
-; CompareFiles - ¤ñ¸û¨â­ÓÀÉ®×¬O§_¬Û¦P
-; °Ñ¼Æ¡GpszFile1, pszFile2
-; ¶Ç¦^¡GEAX = 1 (¬Û¦P) ©Î 0 (¤£¦P/¿ù»~)
+; CompareFiles - æ¯”è¼ƒå…©æª”æ¡ˆæ˜¯å¦ç›¸åŒ
+; åƒæ•¸ï¼špszFile1, pszFile2
+; å›å‚³ï¼šEAX = 1 (ç›¸åŒ) æˆ– 0 (ä¸åŒ/å¤±æ•—)
 ;-----------------------------------------------
 CompareFiles PROC USES ebx esi edi, pszFile1:PTR BYTE, pszFile2:PTR BYTE
     LOCAL hFile1:DWORD
@@ -803,7 +807,7 @@ CompareFiles PROC USES ebx esi edi, pszFile1:PTR BYTE, pszFile2:PTR BYTE
     LOCAL bytesRead1:DWORD
     LOCAL bytesRead2:DWORD
     
-    ; ¶}±ÒÀÉ®× 1
+    ; ï¿½}ï¿½ï¿½ï¿½É®ï¿½ 1
     INVOKE OpenFileForRead, pszFile1
     .IF eax == INVALID_HANDLE_VALUE
         xor eax, eax
@@ -811,7 +815,7 @@ CompareFiles PROC USES ebx esi edi, pszFile1:PTR BYTE, pszFile2:PTR BYTE
     .ENDIF
     mov hFile1, eax
     
-    ; ¶}±ÒÀÉ®× 2
+    ; ï¿½}ï¿½ï¿½ï¿½É®ï¿½ 2
     INVOKE OpenFileForRead, pszFile2
     .IF eax == INVALID_HANDLE_VALUE
         INVOKE CloseFileHandle, hFile1
@@ -820,26 +824,26 @@ CompareFiles PROC USES ebx esi edi, pszFile1:PTR BYTE, pszFile2:PTR BYTE
     .ENDIF
     mov hFile2, eax
     
-    ; ¤ñ¸ûÀÉ®×¤j¤p
+    ; ï¿½ï¿½ï¿½ï¿½É®×¤jï¿½p
     INVOKE GetFileSizeEx, hFile1
     mov ebx, eax
     INVOKE GetFileSizeEx, hFile2
     .IF eax != ebx
-        ; ¤j¤p¤£¦P
+        ; ï¿½jï¿½pï¿½ï¿½ï¿½P
         INVOKE CloseFileHandle, hFile1
         INVOKE CloseFileHandle, hFile2
         xor eax, eax
         ret
     .ENDIF
     
-    ; ³v¶ô¤ñ¸û
+    ; ï¿½vï¿½ï¿½ï¿½ï¿½ï¿½
 compare_loop:
     INVOKE ReadFileBuffer, hFile1, ADDR buffer1, 1024
     mov bytesRead1, eax
     INVOKE ReadFileBuffer, hFile2, ADDR buffer2, 1024
     mov bytesRead2, eax
  
-    ; ÀË¬dÅª¨ú¼Æ¶q
+    ; ï¿½Ë¬dÅªï¿½ï¿½ï¿½Æ¶q
     mov eax, bytesRead1
     mov ebx, bytesRead2
     .IF eax != ebx
@@ -849,18 +853,18 @@ compare_loop:
       ret
     .ENDIF
     
- ; ¦pªG³£Åª§¹¤F
+ ; ï¿½pï¿½Gï¿½ï¿½Åªï¿½ï¿½ï¿½F
     .IF bytesRead1 == 0
      jmp compare_success
     .ENDIF
     
-    ; ¤ñ¸û½w½Ä°Ï
+    ; ï¿½ï¿½ï¿½ï¿½wï¿½Ä°ï¿½
     lea esi, buffer1
     lea edi, buffer2
     mov ecx, bytesRead1
     repe cmpsb
     .IF !ZERO?
-        ; ¤£¬Û¦P
+        ; ï¿½ï¿½ï¿½Û¦P
    INVOKE CloseFileHandle, hFile1
         INVOKE CloseFileHandle, hFile2
         xor eax, eax
