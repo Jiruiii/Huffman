@@ -1,11 +1,11 @@
 ; ===============================================
 ; Huffman Coding File Compression Tool
-; �H���@�GGUI �P�ɮ� I/O �`�� (Enhanced Version)
+; 人員一：GUI 與檔案 I/O 總管（加強版）
 ; ===============================================
 INCLUDE Irvine32.inc
 INCLUDE macros.inc
 
-; Windows API �ŧi
+; Windows API 宣告
 GetModuleHandleA PROTO, lpModuleName:PTR BYTE
 DialogBoxParamA PROTO, hInstance:DWORD, lpTemplateName:DWORD, hWndParent:DWORD, lpDialogFunc:DWORD, dwInitParam:DWORD
 EndDialog PROTO, hDlg:DWORD, nResult:DWORD
@@ -14,7 +14,7 @@ SetWindowTextA PROTO, hWnd:DWORD, lpString:PTR BYTE
 GetOpenFileNameA PROTO, lpofn:PTR OPENFILENAME
 GetSaveFileNameA PROTO, lpofn:PTR OPENFILENAME
 
-; �ɮ� I/O API
+; 檔案 I/O API
 CreateFileA PROTO, lpFileName:PTR BYTE, dwDesiredAccess:DWORD, dwShareMode:DWORD,
     lpSecurityAttributes:DWORD, dwCreationDisposition:DWORD, dwFlagsAndAttributes:DWORD, hTemplateFile:DWORD
 ; ReadFile and WriteFile are already defined in Windows libraries
@@ -23,10 +23,10 @@ GetFileSize PROTO, hFile:DWORD, lpFileSizeHigh:DWORD
 ; SetFilePointer is already defined in Windows libraries
 MessageBoxA PROTO, hWnd:DWORD, lpText:PTR BYTE, lpCaption:PTR BYTE, uType:DWORD
 
-; String �禡
+; String 處理
 wsprintfA PROTO C, lpOut:PTR BYTE, lpFmt:PTR BYTE, args:VARARG
 
-; �`�Ʃw�q
+; 常數定義區
 .const
 IDD_MAIN_DIALOG  EQU 101
 IDC_BTN_COMPRESS    EQU 1001
@@ -57,7 +57,7 @@ MB_ICONINFORMATION  EQU 40h
 MB_ICONERROR        EQU 10h
 MB_ICONWARNING    EQU 30h
 
-; OPENFILENAME ���c
+; OPENFILENAME 結構
 OPENFILENAME STRUCT
     lStructSize       DWORD ?
     hwndOwner DWORD ?
@@ -82,7 +82,7 @@ OPENFILENAME STRUCT
 OPENFILENAME ENDS
 
 .data
-; �����ܼ�
+; 全域變數區
 hInstance  DWORD ?
 hMainDialog     DWORD ?
 szInputFile     BYTE 260 DUP(0)
@@ -90,7 +90,7 @@ szOutputFile    BYTE 260 DUP(0)
 inputFileSize   DWORD ?
 outputFileSize  DWORD ?
 
-; �ɮ׹L�o��
+; 檔案過濾器
 szFilterCompress    BYTE "Text Files (*.txt)",0,"*.txt",0
       BYTE "All Files (*.*)",0,"*.*",0,0
 huffFilterStr       BYTE "Huffman Files (*.huff)",0,"*.huff",0
@@ -100,7 +100,7 @@ szFilterDecompress  BYTE "Huffman Files (*.huff)",0,"*.huff",0
 szFilterSave        BYTE "Huffman Files (*.huff)",0,"*.huff",0
             BYTE "Text Files (*.txt)",0,"*.txt",0,0
 
-; �T���r��
+; 文字訊息
 szAppTitle  BYTE "Huffman File Compressor v1.0",0
 szCompressTitle     BYTE "Select File to Compress",0
 szDecompressTitle   BYTE "Select File to Decompress",0
@@ -116,23 +116,23 @@ szFileNotExist      BYTE "File does not exist!",0
 szFileTooLarge  BYTE "File is too large (max 10MB)!",0
 szEmptyFile         BYTE "File is empty!",0
 
-; �έp�T���榡�r��
+; 壓縮率訊息格式字串
 szStatsFormat       BYTE "Input: %d bytes | Output: %d bytes | Compression: %d%%",0
 szDecompStatsFormat BYTE "Decompressed: %d bytes from %d bytes compressed file",0
 szReadyWithFile     BYTE "Selected: %s (%d bytes)",0
 
-; �w�İ�
+; 狀態暫存區
 szStatusBuffer      BYTE 512 DUP(0)
 szMessageBuffer  BYTE 512 DUP(0)
 
-; ���ɦW���
+; 副檔名字串
 hufExt BYTE ".huff",0
 txtExt BYTE ".txt",0
 
-; ���հT��
+; 除錯訊息
 szDebugMsg BYTE "Building Huffman Tree...",0
 
-; �e�V�ŧi (Forward Declarations)
+; 前置宣告 (Forward Declarations)
 DlgProc PROTO, hDlg:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWORD
 CompressFile PROTO
 DecompressFile PROTO
@@ -163,7 +163,7 @@ CompareFiles PROTO, pszFile1:PTR BYTE, pszFile2:PTR BYTE
 .code
 
 ;-----------------------------------------------
-; �D�{���i�J�I
+; 程式進入點
 ;-----------------------------------------------
 main PROC
     INVOKE GetModuleHandleA, NULL
@@ -176,7 +176,7 @@ main PROC
 main ENDP
 
 ;-----------------------------------------------
-; ��ܮسB�z�{��
+; 主視窗訊息處理程序
 ;-----------------------------------------------
 DlgProc PROC, hDlg:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWORD
     .IF uMsg == WM_INITDIALOG
@@ -208,7 +208,7 @@ DlgProc PROC, hDlg:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWORD
 DlgProc ENDP
 
 ;-----------------------------------------------
-; ���Y�ɮ׬y�{�]�W�j���^
+; 壓縮檔案主程序
 ;-----------------------------------------------
 CompressFile PROC
     LOCAL ofn:OPENFILENAME
@@ -276,7 +276,7 @@ CompressFile PROC
 CompressFile ENDP
 
 ;-----------------------------------------------
-; �����Y�ɮ׬y�{�]�W�j���^
+; 解壓縮檔案主程序
 ;-----------------------------------------------
 DecompressFile PROC
     LOCAL ofn:OPENFILENAME
@@ -341,7 +341,7 @@ shl eax, 1  ; ���]�٭쬰 2 ��
 DecompressFile ENDP
 
 ;-----------------------------------------------
-; �]�w OPENFILENAME ���c�����U�禡
+; 設定 OPENFILENAME 結構內容
 ;-----------------------------------------------
 SetupOpenFileStruct PROC USES ebx, pOfn:PTR OPENFILENAME, pFile:PTR BYTE, pFilter:PTR BYTE, pTitle:PTR BYTE
     mov ebx, pOfn
@@ -377,8 +377,8 @@ SetupOpenFileStruct PROC USES ebx, pOfn:PTR OPENFILENAME, pFile:PTR BYTE, pFilte
 SetupOpenFileStruct ENDP
 
 ;-----------------------------------------------
-; ���ҿ�J�ɮ�
-; �Ǧ^�GEAX = �ɮפj�p�]���\�^�� 0�]���ѡ^
+; 驗證輸入檔案
+; 回傳：EAX = 檔案大小（失敗則為 0）
 ;-----------------------------------------------
 ValidateInputFile PROC USES ebx, pszFilePath:PTR BYTE
     LOCAL hFile:DWORD
@@ -425,7 +425,7 @@ ValidateInputFile PROC USES ebx, pszFilePath:PTR BYTE
 ValidateInputFile ENDP
 
 ;-----------------------------------------------
-; ������Y�έp��T
+; 顯示壓縮率訊息
 ;-----------------------------------------------
 DisplayCompressionStats PROC USES eax ebx ecx edx
     LOCAL compressionRatio:DWORD
@@ -459,7 +459,7 @@ DisplayCompressionStats PROC USES eax ebx ecx edx
 DisplayCompressionStats ENDP
 
 ;-----------------------------------------------
-; ��ܸ����Y�έp��T
+; 顯示解壓縮訊息
 ;-----------------------------------------------
 DisplayDecompressionStats PROC
     INVOKE wsprintfA, ADDR szStatusBuffer, ADDR szDecompStatsFormat, 
@@ -469,7 +469,7 @@ DisplayDecompressionStats PROC
 DisplayDecompressionStats ENDP
 
 ;-----------------------------------------------
-; ����x�s�ɮס]���Y�Ρ^
+; 選擇壓縮檔案儲存位置
 ;-----------------------------------------------
 SelectSaveFile PROC
     LOCAL ofn:OPENFILENAME
@@ -486,7 +486,7 @@ SelectSaveFile PROC
 SelectSaveFile ENDP
 
 ;-----------------------------------------------
-; ����x�s�ɮס]�����Y�^
+; 選擇解壓縮檔案儲存位置
 ;-----------------------------------------------
 SelectSaveFileDecompress PROC
     LOCAL ofn:OPENFILENAME
@@ -503,7 +503,7 @@ SelectSaveFileDecompress PROC
 SelectSaveFileDecompress ENDP
 
 ;-----------------------------------------------
-; ���Ϳ�X�ɦW
+; 產生輸出檔名
 ;-----------------------------------------------
 GenerateOutputFilename PROC USES esi edi, pszInput:PTR BYTE, pszOutput:PTR BYTE, pszExtension:PTR BYTE
     LOCAL lastDotPos:DWORD
@@ -545,7 +545,7 @@ append_ext:
 GenerateOutputFilename ENDP
 
 ;-----------------------------------------------
-; �]�w�x�s�ɮ׵��c
+; 設定儲存檔案對話框結構
 ;-----------------------------------------------
 SetupSaveFileStruct PROC USES ebx, pOfn:PTR OPENFILENAME, pFile:PTR BYTE, pFilter:PTR BYTE
     mov ebx, pOfn
@@ -581,7 +581,7 @@ SetupSaveFileStruct PROC USES ebx, pOfn:PTR OPENFILENAME, pFile:PTR BYTE, pFilte
 SetupSaveFileStruct ENDP
 
 ;-----------------------------------------------
-; �M�Žw�İ�
+; 清空緩衝區
 ;-----------------------------------------------
 ClearBuffer PROC, pBuffer:PTR BYTE, bufSize:DWORD
     push edi
@@ -596,7 +596,7 @@ ClearBuffer PROC, pBuffer:PTR BYTE, bufSize:DWORD
 ClearBuffer ENDP
 
 ;-----------------------------------------------
-; ��s���A�T��
+; 更新狀態訊息
 ;-----------------------------------------------
 UpdateStatus PROC USES eax, pszMessage:PTR BYTE
     INVOKE GetDlgItem, hMainDialog, IDC_EDIT_STATUS
@@ -605,7 +605,7 @@ UpdateStatus PROC USES eax, pszMessage:PTR BYTE
 UpdateStatus ENDP
 
 ;-----------------------------------------------
-; ���o���Y�ɮפj�p�]�ѥ~���I�s�^
+; 取得壓縮檔案大小（若失敗回傳 0）
 ;-----------------------------------------------
 GetCompressedFileSize PROC, pszFilePath:PTR BYTE
     LOCAL hFile:DWORD
@@ -627,11 +627,11 @@ GetCompressedFileSize PROC, pszFilePath:PTR BYTE
 GetCompressedFileSize ENDP
 
 ;===============================================
-; �H�U�O���� I/O �禡�A�Ѩ�L�խ��ϥ�
+; 以下為通用 I/O 函式，供其他模組呼叫
 ;===============================================
 
 ;-----------------------------------------------
-; OpenFileForRead
+; 開啟檔案（讀取）
 ;-----------------------------------------------
 OpenFileForRead PROC, pszFilePath:PTR BYTE
     INVOKE CreateFileA, pszFilePath, GENERIC_READ, 0, NULL, 
@@ -640,7 +640,7 @@ OpenFileForRead PROC, pszFilePath:PTR BYTE
 OpenFileForRead ENDP
 
 ;-----------------------------------------------
-; OpenFileForWrite
+; 開啟檔案（寫入）
 ;-----------------------------------------------
 OpenFileForWrite PROC, pszFilePath:PTR BYTE
     INVOKE CreateFileA, pszFilePath, GENERIC_WRITE, 0, NULL,
@@ -649,7 +649,7 @@ OpenFileForWrite PROC, pszFilePath:PTR BYTE
 OpenFileForWrite ENDP
 
 ;-----------------------------------------------
-; ReadFileByte
+; 讀取單一位元組
 ;-----------------------------------------------
 ReadFileByte PROC USES ebx ecx edx, hFile:DWORD
     LOCAL buffer:BYTE
@@ -671,7 +671,7 @@ ReadFileByte PROC USES ebx ecx edx, hFile:DWORD
 ReadFileByte ENDP
 
 ;-----------------------------------------------
-; WriteFileByte
+; 寫入單一位元組
 ;-----------------------------------------------
 WriteFileByte PROC USES ebx ecx edx, hFile:DWORD, byteVal:BYTE
     LOCAL bytesWritten:DWORD
@@ -681,7 +681,7 @@ WriteFileByte PROC USES ebx ecx edx, hFile:DWORD, byteVal:BYTE
 WriteFileByte ENDP
 
 ;-----------------------------------------------
-; ReadFileBuffer
+; 讀取緩衝區
 ;-----------------------------------------------
 ReadFileBuffer PROC, hFile:DWORD, pBuffer:PTR BYTE, nBytes:DWORD
     LOCAL bytesRead:DWORD
@@ -697,7 +697,7 @@ ReadFileBuffer PROC, hFile:DWORD, pBuffer:PTR BYTE, nBytes:DWORD
 ReadFileBuffer ENDP
 
 ;-----------------------------------------------
-; WriteFileBuffer
+; 寫入緩衝區
 ;-----------------------------------------------
 WriteFileBuffer PROC, hFile:DWORD, pBuffer:PTR BYTE, nBytes:DWORD
     LOCAL bytesWritten:DWORD
@@ -713,7 +713,7 @@ WriteFileBuffer PROC, hFile:DWORD, pBuffer:PTR BYTE, nBytes:DWORD
 WriteFileBuffer ENDP
 
 ;-----------------------------------------------
-; CloseFileHandle
+; 關閉檔案
 ;-----------------------------------------------
 CloseFileHandle PROC, hFile:DWORD
     INVOKE CloseHandle, hFile
@@ -721,7 +721,7 @@ CloseFileHandle PROC, hFile:DWORD
 CloseFileHandle ENDP
 
 ;-----------------------------------------------
-; GetFileSizeEx
+; 取得檔案大小
 ;-----------------------------------------------
 GetFileSizeEx PROC, hFile:DWORD
     INVOKE GetFileSize, hFile, NULL
@@ -729,7 +729,7 @@ GetFileSizeEx PROC, hFile:DWORD
 GetFileSizeEx ENDP
 
 ;-----------------------------------------------
-; SeekFile
+; 移動檔案指標
 ;-----------------------------------------------
 SeekFile PROC, hFile:DWORD, distanceToMove:SDWORD, moveMethod:DWORD
     INVOKE SetFilePointer, hFile, distanceToMove, NULL, moveMethod
@@ -737,13 +737,13 @@ SeekFile PROC, hFile:DWORD, distanceToMove:SDWORD, moveMethod:DWORD
 SeekFile ENDP
 
 ;===============================================
-; �s�W�G�B�~���u��禡
+; 其他工具函式
 ;===============================================
 
 ;-----------------------------------------------
-; CopyFile - �ƻs�ɮס]�Ѵ��ըϥΡ^
-; �ѼơGpszSource, pszDest
-; �Ǧ^�GEAX = 1 (���\) �� 0 (����)
+; CopyFile - 複製檔案（供測試用）
+; 參數：pszSource, pszDest
+; 回傳：EAX = 1 (成功) 或 0 (失敗)
 ;-----------------------------------------------
 CopyFileData PROC USES ebx esi edi, pszSource:PTR BYTE, pszDest:PTR BYTE
     LOCAL hFileIn:DWORD
@@ -795,9 +795,9 @@ copy_done:
 CopyFileData ENDP
 
 ;-----------------------------------------------
-; CompareFiles - �������ɮ׬O�_�ۦP
-; �ѼơGpszFile1, pszFile2
-; �Ǧ^�GEAX = 1 (�ۦP) �� 0 (���P/���~)
+; CompareFiles - 比較兩檔案是否相同
+; 參數：pszFile1, pszFile2
+; 回傳：EAX = 1 (相同) 或 0 (不同/失敗)
 ;-----------------------------------------------
 CompareFiles PROC USES ebx esi edi, pszFile1:PTR BYTE, pszFile2:PTR BYTE
     LOCAL hFile1:DWORD
