@@ -5,6 +5,20 @@
 
 INCLUDE Irvine32.inc
 
+.data
+; Buffer for serialized tree (max 16KB to be safe)
+TreeBuf BYTE 16384 DUP(?)
+TreeBufIndex DWORD 0
+TreeBytes DWORD 0
+OriginalSize DWORD 0
+
+; Node allocation buffer for decoder
+NODE_BUFFER_SIZE_DEC = 512 * 16
+NodeBufferDec BYTE NODE_BUFFER_SIZE_DEC DUP(?)
+NextNodePtrDec DWORD OFFSET NodeBufferDec
+OutWrittenCount DWORD 0
+.code
+
 ; Huffman tree node structure
 HuffNode STRUCT
     freq  DWORD ?
@@ -46,11 +60,66 @@ DecompressHuffmanFile PROC USES esi edi ebx,
     ; - DWORD (4 bytes): originalFileSize (number of output bytes after decompression)
     ; After the header follows the compressed bitstream.
     ;
-    ; TODO: Read the DWORD treeBytes, read the treeBytes into a buffer,
-    ;       reconstruct nodes into a dynamically allocated array and set
-    ;       rootNode = pointer to the root HuffNode.
-    ;       (Implementation left as next step; below code assumes `rootNode` will
-    ;       be set before entering the decode loop.)
+    ; Read treeBytes (DWORD, little-endian)
+    mov eax, 0
+    INVOKE ReadFileByte, hIn
+    mov al, al
+    mov bl, al
+    mov eax, ebx
+    INVOKE ReadFileByte, hIn
+    mov al, al
+    shl eax, 8
+    or eax, eax
+    INVOKE ReadFileByte, hIn
+    mov al, al
+    shl eax, 8
+    or eax, eax
+    INVOKE ReadFileByte, hIn
+    mov al, al
+    shl eax, 8
+    or eax, eax
+    mov TreeBytes, eax
+
+    ; Read serialized tree bytes into TreeBuf
+    mov ecx, TreeBytes
+    mov edi, 0
+read_tree_bytes_loop:
+    cmp ecx, 0
+    je tree_bytes_done
+    INVOKE ReadFileByte, hIn
+    mov TreeBuf[edi], al
+    inc edi
+    dec ecx
+    jmp read_tree_bytes_loop
+tree_bytes_done:
+
+    ; Read originalFileSize (DWORD little-endian)
+    mov eax, 0
+    INVOKE ReadFileByte, hIn
+    mov al, al
+    mov ebx, eax
+    INVOKE ReadFileByte, hIn
+    mov al, al
+    shl ebx, 8
+    or ebx, eax
+    INVOKE ReadFileByte, hIn
+    mov al, al
+    shl ebx, 8
+    or ebx, eax
+    INVOKE ReadFileByte, hIn
+    mov al, al
+    shl ebx, 8
+    or ebx, eax
+    mov OriginalSize, ebx
+
+    ; Prepare to rebuild tree from TreeBuf
+    mov TreeBufIndex, 0
+    mov NextNodePtrDec, OFFSET NodeBufferDec
+    ; call recursive builder
+    call RebuildNodeFromBuffer
+    mov rootNode, eax
+    mov esi, rootNode
+    mov OutWrittenCount, 0
 
     ; 3. Bit-level decoding main loop
     mov bitCount, 0
@@ -106,6 +175,15 @@ decode_loop:
     INVOKE WriteFileByte, hOut, al
     ; After writing a leaf, return to root
     mov esi, rootNode
+    ; increment output count and stop if we've written originalSize bytes
+    mov eax, OutWrittenCount
+    inc eax
+    mov OutWrittenCount, eax
+    mov eax, OutWrittenCount
+    cmp eax, OriginalSize
+    jne decode_continue
+    jmp decode_end
+decode_continue:
     jmp decode_loop
     jmp decode_loop
 
@@ -118,5 +196,82 @@ decode_end:
 DecompressHuffmanFile ENDP
 
 ; Additional helper functions can be added here
+
+; --------------------------------------------------------------------
+; AllocNode - allocate space for a HuffNode from NodeBufferDec
+; Returns: EAX = pointer to node
+; --------------------------------------------------------------------
+AllocNode PROC
+    push ebp
+    mov ebp, esp
+    push ebx
+
+    mov eax, NextNodePtrDec
+    add NextNodePtrDec, SIZEOF HuffNode
+    mov ebx, eax
+
+    ; initialize
+    mov DWORD PTR [ebx + HuffNode.freq], 0
+    mov BYTE PTR [ebx + HuffNode.char], 0
+    mov DWORD PTR [ebx + HuffNode.left], 0
+    mov DWORD PTR [ebx + HuffNode.right], 0
+
+    mov eax, ebx
+    pop ebx
+    mov esp, ebp
+    pop ebp
+    ret
+AllocNode ENDP
+
+
+; --------------------------------------------------------------------
+; RebuildNodeFromBuffer - recursively rebuild Huffman tree from TreeBuf
+; Returns: EAX = pointer to rebuilt node
+; --------------------------------------------------------------------
+RebuildNodeFromBuffer PROC
+    push ebp
+    mov ebp, esp
+    push ebx
+    push esi
+    push edi
+
+    ; load current marker
+    mov ebx, TreeBufIndex
+    mov al, TreeBuf[ebx]
+    ; increment index
+    add dword ptr TreeBufIndex, 1
+    cmp al, 1
+    je .leaf
+
+    ; internal node
+    call AllocNode
+    mov edx, eax ; edx = this node
+    ; build left
+    call RebuildNodeFromBuffer
+    mov DWORD PTR [edx + HuffNode.left], eax
+    ; build right
+    call RebuildNodeFromBuffer
+    mov DWORD PTR [edx + HuffNode.right], eax
+    mov eax, edx
+    jmp .done
+
+.leaf:
+    ; read character byte
+    mov ebx, TreeBufIndex
+    mov al, TreeBuf[ebx]
+    add dword ptr TreeBufIndex, 1
+    call AllocNode
+    mov BYTE PTR [eax + HuffNode.char], al
+    mov DWORD PTR [eax + HuffNode.left], 0
+    mov DWORD PTR [eax + HuffNode.right], 0
+
+.done:
+    pop edi
+    pop esi
+    pop ebx
+    mov esp, ebp
+    pop ebp
+    ret
+RebuildNodeFromBuffer ENDP
 
 END

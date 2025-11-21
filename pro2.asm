@@ -10,15 +10,20 @@ OPEN_EXISTING     EQU 3
 CREATE_ALWAYS     EQU 2
 FILE_ATTRIBUTE_NORMAL EQU 80h
 INVALID_HANDLE_VALUE EQU -1
+FILE_BEGIN        EQU 0
+FILE_CURRENT      EQU 1
+FILE_END          EQU 2
 
 ; Declare WinAPI prototypes so INVOKE accepts correct argument counts
 CreateFileA PROTO :PTR, :DWORD, :DWORD, :DWORD, :DWORD, :DWORD, :DWORD
 ReadFile     PROTO :DWORD, :PTR, :DWORD, :PTR, :DWORD
 WriteFile    PROTO :DWORD, :PTR, :DWORD, :PTR, :DWORD
+SetFilePointer PROTO :DWORD, :DWORD, :PTR, :DWORD
 CloseHandle  PROTO :DWORD
 includelib kernel32.lib
 
 EXTERN BuildHuffmanTree:PROC
+EXTERN BuildHuffmanTree_File:PROC
 
 ; Re-declare HuffNode structure to match pro.asm
 HuffNode STRUCT
@@ -46,6 +51,10 @@ ReadCount     DWORD 0
 WriteBuf      BYTE 1 DUP(0)
 ReadBuf       BYTE 4096 DUP(?)
 out_filename  BYTE 260 DUP(0)
+TreeBytes     DWORD 0
+OriginalSize  DWORD 0
+HeaderZero    DWORD 0
+TempBytesWritten DWORD 0
 
 ; Simple message
 msg_header   BYTE "--- Huffman Header (symbol:len) ---",0dh,0ah,0
@@ -412,6 +421,36 @@ CopyDone:
     cmp eax, INVALID_HANDLE_VALUE
     je open_out_err
 
+    ; --- Write header placeholder, serialize tree, then backpatch treeBytes ---
+    ; write 4-byte placeholder for treeBytes
+    INVOKE WriteFile, dword ptr OutFileHandle, ADDR HeaderZero, 4, ADDR BytesWritten, 0
+
+    ; serialize the Huffman tree directly to the output (preorder)
+    push esi
+    call SerializeTreePreorder
+
+    ; get current file pointer (end of serialized tree)
+    INVOKE SetFilePointer, dword ptr OutFileHandle, 0, 0, FILE_CURRENT
+    mov TreeBytes, eax
+    ; subtract the 4-byte placeholder at file start
+    sub TreeBytes, 4
+
+    ; compute original input file size by seeking to end of input file
+    INVOKE SetFilePointer, dword ptr InFileHandle, 0, 0, FILE_END
+    mov OriginalSize, eax
+    ; rewind input file to beginning for subsequent reading
+    INVOKE SetFilePointer, dword ptr InFileHandle, 0, 0, FILE_BEGIN
+
+    ; write originalFileSize (DWORD) immediately after serialized tree
+    INVOKE WriteFile, dword ptr OutFileHandle, ADDR OriginalSize, 4, ADDR BytesWritten, 0
+
+    ; backpatch treeBytes at file start
+    INVOKE SetFilePointer, dword ptr OutFileHandle, 0, 0, FILE_BEGIN
+    INVOKE WriteFile, dword ptr OutFileHandle, ADDR TreeBytes, 4, ADDR BytesWritten, 0
+
+    ; move file pointer back to end to continue writing compressed data
+    INVOKE SetFilePointer, dword ptr OutFileHandle, 0, 0, FILE_END
+
     ; write simple header to console for verification
     INVOKE WriteString, ADDR msg_header
     ; iterate symbols and print symbol:len
@@ -531,8 +570,9 @@ CompressFile PROC
 
     mov edi, dword ptr [ebp+8] ; inputPathPtr
 
-    ; Build Huffman tree (uses internal test string or file-based impl)
-    call BuildHuffmanTree     ; returns rootPtr in EAX
+    ; Build Huffman tree from input file (use file-based wrapper)
+    push edi                 ; push inputPathPtr
+    call BuildHuffmanTree_File ; returns rootPtr in EAX
     mov ebx, eax              ; rootPtr
 
     ; Call EncodeHuffman(rootPtr, inputPathPtr)
