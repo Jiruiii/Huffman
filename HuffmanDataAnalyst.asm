@@ -5,6 +5,17 @@ option casemap :none
 ; Include Irvine32 library
 INCLUDE Irvine32.inc
 
+PUBLIC BuildHuffmanTree
+PUBLIC BuildHuffmanTree_File
+
+includelib kernel32.lib
+
+; File read buffer for CountFrequencyFromFile
+ReadBuf2 BYTE 4096 DUP(?)
+ReadCount2 DWORD 0
+InFileHandle2 DWORD 0
+
+
 main        EQU start@0
 
 ; Huffman Tree Node Structure Definition (Ch. 10 STRUCT Application)
@@ -76,40 +87,107 @@ AllocNode ENDP
 ; Purpose: Count the occurrence frequency of each character.
 ; --------------------------------------------------------------------
 CountFrequency PROC
-    PUSH ESI
-    PUSH EDI
-    PUSH ECX
-    PUSH EBX 
-
-    ; --- Simulate file read (using TestString) ---
-    MOV ECX, TestStringLen ; Loop counter = TestString length
-    MOV ESI, OFFSET TestString ; Source index = TestString start address
-    MOV EDI, OFFSET FrequencyTable ; Destination index = FrequencyTable start address
-
-  CountLoop:
-    MOV AL, [ESI] ; Read one character
-    MOVZX EBX, AL ; Use character value as index (0-255)
-    
-    ; --- V23 Fix: Replace SHL EBX, 2 ---
-    ADD EBX, EBX  ; EBX = index * 2
-    ADD EBX, EBX  ; EBX = index * 4
-
-    INC DWORD PTR [EDI + EBX] ; This character's frequency + 1
-
-    INC ESI
-    LOOP CountLoop
-
-    ; Output status message (V4 Fix: ADDR -> OFFSET)
-    MOV EDX, OFFSET msg_freq_count
-    INVOKE WriteString
-    INVOKE Crlf
-
-    POP EBX
-    POP ECX
-    POP EDI
-    POP ESI
+    ; Deprecated: use CountFrequencyFromFile for real files
     RET
 CountFrequency ENDP
+
+
+; --------------------------------------------------------------------
+; PROC: CountFrequencyFromFile (stdcall)
+; Purpose: Read an input file and fill FrequencyTable
+; Params: [esp+4] = pointer to NUL-terminated path (ANSI)
+; Returns: EAX = 1 on success, 0 on failure
+; --------------------------------------------------------------------
+CountFrequencyFromFile PROC
+    push ebp
+    mov ebp, esp
+    push ebx
+    push esi
+    push edi
+    push ecx
+
+    mov esi, dword ptr [ebp+8] ; input path pointer
+    ; Open file
+    INVOKE CreateFileA, esi, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0
+    mov InFileHandle2, eax
+    cmp eax, INVALID_HANDLE_VALUE
+    je cf_fail
+
+    ; Read loop
+    lea edi, FrequencyTable
+  cf_read_loop:
+    INVOKE ReadFile, dword ptr InFileHandle2, ADDR ReadBuf2, 4096, ADDR ReadCount2, 0
+    mov ecx, ReadCount2
+    cmp ecx, 0
+    je cf_done
+    mov ebx, 0 ; buffer index
+  cf_bytes_loop:
+    mov al, ReadBuf2[ebx]
+    movzx edx, al
+    ; index *4
+    mov eax, edx
+    shl eax, 2
+    add eax, OFFSET FrequencyTable
+    inc DWORD PTR [eax]
+    inc ebx
+    dec ecx
+    jnz cf_bytes_loop
+    jmp cf_read_loop
+
+  cf_done:
+    INVOKE CloseHandle, InFileHandle2
+    mov eax, 1
+    jmp cf_cleanup
+
+  cf_fail:
+    mov eax, 0
+
+  cf_cleanup:
+    pop ecx
+    pop edi
+    pop esi
+    pop ebx
+    mov esp, ebp
+    pop ebp
+    ret 4
+CountFrequencyFromFile ENDP
+
+
+; New wrapper: BuildHuffmanTree_File(inputPathPtr)
+; stdcall: caller pushes inputPathPtr; returns EAX = rootPtr or 0
+BuildHuffmanTree_File PROC
+    push ebp
+    mov ebp, esp
+    push ebx
+    push esi
+    push edi
+
+    mov esi, dword ptr [ebp+8] ; inputPathPtr
+    ; clear FrequencyTable
+    mov ecx, 256
+    lea edi, FrequencyTable
+    xor eax, eax
+bf_clear_loop:
+    mov [edi], eax
+    add edi, 4
+    loop bf_clear_loop
+
+    ; count frequencies from file
+    push esi
+    call CountFrequencyFromFile
+    ; ignore return for now
+
+    ; call existing BuildHuffmanTree (no args)
+    call BuildHuffmanTree
+    ; EAX is rootPtr
+
+    pop edi
+    pop esi
+    pop ebx
+    mov esp, ebp
+    pop ebp
+    ret 4
+BuildHuffmanTree_File ENDP
 
 ; --------------------------------------------------------------------
 ; PROC: FindMin (V28: Replaces FindTwoMin, bypasses A2206 Bug)
