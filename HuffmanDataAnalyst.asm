@@ -5,6 +5,8 @@ option casemap :none
 ; Include Irvine32 library
 INCLUDE Irvine32.inc
 
+PUBLIC BuildHuffmanTree
+
 main        EQU start@0
 
 ; Huffman Tree Node Structure Definition (Ch. 10 STRUCT Application)

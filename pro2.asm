@@ -18,6 +18,8 @@ WriteFile    PROTO :DWORD, :PTR, :DWORD, :PTR, :DWORD
 CloseHandle  PROTO :DWORD
 includelib kernel32.lib
 
+EXTERN BuildHuffmanTree:PROC
+
 ; Re-declare HuffNode structure to match pro.asm
 HuffNode STRUCT
     freq  DWORD ?
@@ -61,6 +63,7 @@ public BuildCodes
 public EncodeHuffman
 public WriteFileByte
 public SerializeTreePreorder
+public CompressFile
 
 ; ------------------------------------------------------------
 ; Bit buffer routines (stdcall):
@@ -513,4 +516,38 @@ flush:
     ret 8
 EncodeHuffman ENDP
 
+
+; ------------------------------------------------------------
+; CompressFile(inputPathPtr)
+; Calls BuildHuffmanTree (from HuffmanDataAnalyst), then EncodeHuffman
+; stdcall: caller pushes inputPathPtr; callee cleans stack (ret 4)
+; ------------------------------------------------------------
+CompressFile PROC
+    push ebp
+    mov ebp, esp
+    push ebx
+    push esi
+    push edi
+
+    mov edi, dword ptr [ebp+8] ; inputPathPtr
+
+    ; Build Huffman tree (uses internal test string or file-based impl)
+    call BuildHuffmanTree     ; returns rootPtr in EAX
+    mov ebx, eax              ; rootPtr
+
+    ; Call EncodeHuffman(rootPtr, inputPathPtr)
+    push edi                  ; inputPathPtr (second arg)
+    push ebx                  ; rootPtr (first arg)
+    call EncodeHuffman        ; stdcall, will clean 8 bytes
+
+    ; cleanup and return
+    pop edi
+    pop esi
+    pop ebx
+    mov esp, ebp
+    pop ebp
+    ret 4
+CompressFile ENDP
+
 end
+
