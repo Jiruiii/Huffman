@@ -6,6 +6,7 @@ option casemap :none
 INCLUDE Irvine32.inc
 
 PUBLIC BuildHuffmanTree
+PUBLIC BuildHuffmanTree_File
 
 includelib kernel32.lib
 
