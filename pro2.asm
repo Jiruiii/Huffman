@@ -68,11 +68,11 @@ msg_colon BYTE ": ",0
 
 .code
 ; Exports
-public BuildCodes
-public EncodeHuffman
+public Pro2_BuildCodes
+public Pro2_EncodeHuffman
 public WriteFileByte
-public SerializeTreePreorder
-public CompressFile
+public Pro2_SerializeTreePreorder
+public Pro2_CompressFile
 
 ; ------------------------------------------------------------
 ; Bit buffer routines (stdcall):
@@ -183,7 +183,7 @@ WriteFileByte ENDP
 ; - For leaf: write byte 1 followed by symbol byte
 ; - For internal: write byte 0
 ; ------------------------------------------------------------
-SerializeTreePreorder PROC
+Pro2_SerializeTreePreorder PROC
     push ebp
     mov ebp, esp
     push ebx
@@ -218,14 +218,14 @@ stp_internal:
     cmp eax, 0
     je .skip_left_rec
     push eax
-    call SerializeTreePreorder
+    call Pro2_SerializeTreePreorder
 .skip_left_rec:
     ; right
     mov eax, (HuffNode PTR [esi]).right
     cmp eax, 0
     je .skip_right_rec
     push eax
-    call SerializeTreePreorder
+    call Pro2_SerializeTreePreorder
 .skip_right_rec:
 
 stp_ret:
@@ -234,7 +234,7 @@ stp_ret:
     mov esp, ebp
     pop ebp
     ret 4
-SerializeTreePreorder ENDP
+Pro2_SerializeTreePreorder ENDP
 
 ; ------------------------------------------------------------
 ; Recursive BuildCodes: BuildCodesRec(nodePtr, curBits, curLen)
@@ -369,7 +369,7 @@ BuildCodes ENDP
 ; EncodeHuffman(rootPtr, inputPtr)
 ; rootPtr at [ebp+8], inputPtr at [ebp+12]
 ; ------------------------------------------------------------
-EncodeHuffman PROC
+Pro2_EncodeHuffman PROC
     push ebp
     mov ebp, esp
     push ebx
@@ -427,7 +427,7 @@ CopyDone:
 
     ; serialize the Huffman tree directly to the output (preorder)
     push esi
-    call SerializeTreePreorder
+    call Pro2_SerializeTreePreorder
 
     ; get current file pointer (end of serialized tree)
     INVOKE SetFilePointer, dword ptr OutFileHandle, 0, 0, FILE_CURRENT
@@ -553,7 +553,7 @@ flush:
     mov esp, ebp
     pop ebp
     ret 8
-EncodeHuffman ENDP
+Pro2_EncodeHuffman ENDP
 
 
 ; ------------------------------------------------------------
@@ -561,7 +561,7 @@ EncodeHuffman ENDP
 ; Calls BuildHuffmanTree (from HuffmanDataAnalyst), then EncodeHuffman
 ; stdcall: caller pushes inputPathPtr; callee cleans stack (ret 4)
 ; ------------------------------------------------------------
-CompressFile PROC
+Pro2_CompressFile PROC
     push ebp
     mov ebp, esp
     push ebx
@@ -578,7 +578,7 @@ CompressFile PROC
     ; Call EncodeHuffman(rootPtr, inputPathPtr)
     push edi                  ; inputPathPtr (second arg)
     push ebx                  ; rootPtr (first arg)
-    call EncodeHuffman        ; stdcall, will clean 8 bytes
+    call Pro2_EncodeHuffman        ; stdcall, will clean 8 bytes
 
     ; cleanup and return
     pop edi
@@ -587,7 +587,7 @@ CompressFile PROC
     mov esp, ebp
     pop ebp
     ret 4
-CompressFile ENDP
+Pro2_CompressFile ENDP
 
 end
 

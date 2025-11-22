@@ -12,6 +12,10 @@
   </ItemGroup>
   <ItemGroup>
     <MASM Include="HuffmanGUI.asm" />
+    <MASM Include="HuffmanDataAnalyst.asm" />
+    <MASM Include="pro2.asm" />
+    <MASM Include="Decoder.asm" />
+    <MASM Include="test_runner.asm" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="HuffmanGUI.rc" />

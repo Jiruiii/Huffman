@@ -1,4 +1,3 @@
-
 ; Huffman Decoder (Member 4)
 ; Main tasks: Read .huff file, reconstruct Huffman tree, and restore original data
 ; Interface: DecompressHuffmanFile PROTO, pszInputFile:PTR BYTE, pszOutputFile:PTR BYTE
@@ -41,76 +40,101 @@ DecompressHuffmanFile PROC USES esi edi ebx,
     INVOKE OpenFileForRead, pszInputFile
     mov hIn, eax
     .IF eax == INVALID_HANDLE_VALUE
+        mov eax, 0
         ret
     .ENDIF
     INVOKE OpenFileForWrite, pszOutputFile
     mov hOut, eax
     .IF eax == INVALID_HANDLE_VALUE
         INVOKE CloseFileHandle, hIn
+        mov eax, 0
         ret
     .ENDIF
 
     ; 2. Read header and reconstruct Huffman tree (must match encoder format)
-    ; Header / serialization format (proposal - must be agreed with encoder):
-    ; - DWORD (4 bytes, little-endian): treeBytes  (number of bytes in the serialized tree)
-    ; - treeBytes bytes: pre-order serialization of the tree:
-    ;     For each node in pre-order:
-    ;       0x00 -> internal node
-    ;       0x01 <char> -> leaf node followed by the byte value
-    ; - DWORD (4 bytes): originalFileSize (number of output bytes after decompression)
-    ; After the header follows the compressed bitstream.
-    ;
     ; Read treeBytes (DWORD, little-endian)
-    mov eax, 0
+    xor eax, eax
     INVOKE ReadFileByte, hIn
-    mov al, al
-    mov bl, al
-    mov eax, ebx
+    cmp eax, -1
+    je .file_error
+    movzx ebx, al
+    or eax, ebx
+
     INVOKE ReadFileByte, hIn
-    mov al, al
-    shl eax, 8
-    or eax, eax
+    cmp eax, -1
+    je .file_error
+    movzx ebx, al
+    shl ebx, 8
+    or eax, ebx
+
     INVOKE ReadFileByte, hIn
-    mov al, al
-    shl eax, 8
-    or eax, eax
+    cmp eax, -1
+    je .file_error
+    movzx ebx, al
+    shl ebx, 16
+    or eax, ebx
+
     INVOKE ReadFileByte, hIn
-    mov al, al
-    shl eax, 8
-    or eax, eax
+    cmp eax, -1
+    je .file_error
+    movzx ebx, al
+    shl ebx, 24
+    or eax, ebx
+
     mov TreeBytes, eax
+
+    ; sanity check TreeBytes
+    mov ecx, TreeBytes
+    cmp ecx, 16384
+    jbe .tree_ok
+    jmp .file_error
+.tree_ok:
 
     ; Read serialized tree bytes into TreeBuf
     mov ecx, TreeBytes
-    mov edi, 0
-read_tree_bytes_loop:
+    xor edi, edi
+.read_tree_bytes_loop:
     cmp ecx, 0
-    je tree_bytes_done
+    je .tree_bytes_done
     INVOKE ReadFileByte, hIn
+    cmp eax, -1
+    je .file_error
     mov TreeBuf[edi], al
     inc edi
     dec ecx
-    jmp read_tree_bytes_loop
-tree_bytes_done:
+    jmp .read_tree_bytes_loop
+.tree_bytes_done:
 
     ; Read originalFileSize (DWORD little-endian)
-    mov eax, 0
+    xor eax, eax
     INVOKE ReadFileByte, hIn
-    mov al, al
-    mov ebx, eax
+    cmp eax, -1
+    je .file_error
+    movzx ebx, al
+    or eax, ebx
+
     INVOKE ReadFileByte, hIn
-    mov al, al
+    cmp eax, -1
+    je .file_error
+    movzx ebx, al
     shl ebx, 8
-    or ebx, eax
+    or eax, ebx
+
     INVOKE ReadFileByte, hIn
-    mov al, al
-    shl ebx, 8
-    or ebx, eax
+    cmp eax, -1
+    je .file_error
+    movzx ebx, al
+    shl ebx, 16
+    or eax, ebx
+
     INVOKE ReadFileByte, hIn
-    mov al, al
-    shl ebx, 8
-    or ebx, eax
-    mov OriginalSize, ebx
+    cmp eax, -1
+    je .file_error
+    movzx ebx, al
+    shl ebx, 24
+    or eax, ebx
+
+    mov OriginalSize, eax
 
     ; Prepare to rebuild tree from TreeBuf
     mov TreeBufIndex, 0
@@ -123,79 +147,79 @@ tree_bytes_done:
 
     ; 3. Bit-level decoding main loop
     mov bitCount, 0
-    ; Initialize root pointer (must be set after header parsing)
-    mov rootNode, 0
-    mov esi, rootNode ; current node pointer (will be reset after tree built)
-decode_loop:
+
+.decode_loop_start:
+    ; stop when we've written OriginalSize bytes
+    mov eax, OutWrittenCount
+    cmp eax, OriginalSize
+    jge .decode_end
+
     ; If bitCount == 0, read a new byte
     mov eax, bitCount
-    .IF eax == 0
-        INVOKE ReadFileByte, hIn
-        .IF eax == -1
-            jmp decode_end
-        .ENDIF
-        mov bitBuffer, al
-        mov bitCount, 8
-    .ENDIF
-    ; Extract MSB from bitBuffer.
-    ; Strategy: examine bit 7, produce 0/1 in BL, then shift buffer left.
+    cmp eax, 0
+    jne .have_bits
+    INVOKE ReadFileByte, hIn
+    cmp eax, -1
+    je .decode_end
+    mov bitBuffer, al
+    mov bitCount, 8
+.have_bits:
+    ; Extract MSB from bitBuffer -> bl = 0/1, consume MSB
     mov al, bitBuffer
     mov bl, al
-    and bl, 80h       ; isolate MSB
-    shr bl, 7         ; bl = 0 or 1
-    shl al, 1         ; consume MSB by shifting left
+    and bl, 80h
+    shr bl, 7
+    shl al, 1
     mov bitBuffer, al
     dec bitCount
 
     ; Traverse Huffman tree according to bit (bl)
-    ; esi = current node pointer, rootNode must be set earlier
     cmp esi, 0
     jne .has_node
-    ; If esi is not initialized, try using rootNode
     mov esi, rootNode
 .has_node:
+    mov edx, DWORD PTR [esi + HuffNode.left]
+    mov ecx, DWORD PTR [esi + HuffNode.right]
     cmp bl, 0
-    je .go_left
-    ; go right
-    mov esi, DWORD PTR [esi + HuffNode.right]
+    je .take_left
+    mov esi, ecx
     jmp .after_move
-.go_left:
-    mov esi, DWORD PTR [esi + HuffNode.left]
+.take_left:
+    mov esi, edx
 .after_move:
+    cmp esi, 0
+    je .decode_end
 
     ; Check if current node is a leaf: left==0 and right==0
     mov eax, DWORD PTR [esi + HuffNode.left]
     or eax, DWORD PTR [esi + HuffNode.right]
-    jz .is_leaf
+    jnz .not_leaf
 
-    jmp decode_loop
-
-.is_leaf:
+    ; Leaf: output char
     mov al, BYTE PTR [esi + HuffNode.char]
     INVOKE WriteFileByte, hOut, al
-    ; After writing a leaf, return to root
     mov esi, rootNode
-    ; increment output count and stop if we've written originalSize bytes
     mov eax, OutWrittenCount
     inc eax
     mov OutWrittenCount, eax
-    mov eax, OutWrittenCount
-    cmp eax, OriginalSize
-    jne decode_continue
-    jmp decode_end
-decode_continue:
-    jmp decode_loop
-    jmp decode_loop
+    jmp .decode_loop_start
 
-decode_end:
-    ; 4. Close files
+.not_leaf:
+    jmp .decode_loop_start
+
+.decode_end:
     INVOKE CloseFileHandle, hIn
     INVOKE CloseFileHandle, hOut
-    mov eax, 1 ; 成功
+    mov eax, 1
     ret
-DecompressHuffmanFile ENDP
 
-; Additional helper functions can be added here
+.file_error:
+    INVOKE CloseFileHandle, hIn
+    INVOKE CloseFileHandle, hOut
+    mov eax, 0
+    ret
+
+DecompressHuffmanFile ENDP
 
 ; --------------------------------------------------------------------
 ; AllocNode - allocate space for a HuffNode from NodeBufferDec
@@ -243,7 +267,7 @@ RebuildNodeFromBuffer PROC
     cmp al, 1
     je .leaf
 
-    ; internal node
+    ; internal node (marker != 1)
     call AllocNode
     mov edx, eax ; edx = this node
     ; build left
