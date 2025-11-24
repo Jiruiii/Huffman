@@ -1,276 +1,90 @@
-#  Huffman Coding File Compressor
+# Huffman Coding File Compressor
 
-霍夫曼編碼檔案壓縮工具 - 組合語言期末專案（人員一：GUI 與檔案 I/O 模組）
+一個以 **MASM x86 組合語言** 實作的霍夫曼壓縮器，整合 GUI、檔案 I/O、Huffman Tree 建構、位元壓縮與解壓。所有程式碼都可在 Windows 10/11 + Visual Studio 2022 上直接編譯。
 
-## 專案簡介
+## 專案特色
 
-這是一個使用 **x86 組合語言 (MASM)** 實作的霍夫曼編碼檔案壓縮/解壓縮工具。
+- **完整 Huffman 流程**：`HuffmanDataAnalyst.asm` 建頻率表與樹、`pro2.asm` 實作編碼器、`Decoder.asm` 執行解碼器。
+- **Win32 GUI**：`HuffmanGUI.asm` 提供壓縮/解壓按鈕、檔案對話盒與狀態欄。
+- **共用 I/O 函式庫**：封裝 `CreateFile`, `ReadFile`, `WriteFile` 等 WinAPI，供其他模組與測試程式呼叫。
+- **測試腳本**：`test_runner.asm` 可批次壓縮→解壓→比對，確保輸出內容與輸入完全相同。
+- **任意編碼支援**：演算法逐 byte 運作，可處理 UTF-8、UTF-16、ASCII 甚至二進位資料；壓縮後的檔案還原時會保留原本的 encoding。
 
-**本模組（人員一）** 負責提供完整的 GUI 介面和檔案 I/O 基礎設施，供其他組員使用。
+## 建置需求
 
-##  人員一完成的功能
+- Windows 10/11
+- Visual Studio 2022（含 MASM、Windows SDK）
+- Irvine32 Library（已在專案中 reference）
 
-###  Windows GUI 介面
-- 使用 Win32 API 建立圖形化介面
-- 包含「壓縮檔案」和「解壓縮檔案」兩個主要按鈕
-- 檔案選擇對話框（開啟檔案/儲存檔案）
-- 狀態訊息顯示區域
-- 壓縮率統計顯示
+## 編譯與執行
 
-### 檔案 I/O 函式庫（15 個函式）
+1. 以 Visual Studio 開啟 `Project32_VS2022/Project.sln`。
+2. 確認組態為 `Debug` 或 `Release`、平台 `Win32`。
+3. （若自訂工具鏈）再次檢查 Linker → Input → Additional Dependencies 包含 `kernel32.lib user32.lib comdlg32.lib irvine32.lib`。
+4. 按 `Ctrl+Shift+B` 或 `F5` 進行建置/偵錯，會產生 GUI 可執行檔。
 
-#### 基礎檔案操作（9 個）
-```asm
-OpenFileForRead(path)      ; 開啟檔案讀取
-OpenFileForWrite(path)          ; 開啟檔案寫入
-ReadFileByte(handle)            ; 讀取單一位元組
-WriteFileByte(handle, byte)     ; 寫入單一位元組
-ReadFileBuffer(h, buf, size)    ; 緩衝區讀取
-WriteFileBuffer(h, buf, size)   ; 緩衝區寫入
-CloseFileHandle(handle)         ; 關閉檔案
-GetFileSizeEx(handle)      ; 獲得檔案大小
-SeekFile(handle, offset, mode)  ; 移動檔案指標
+### GUI 操作
+
+1. `Compress File`：選擇任意文字或二進位檔，程式會建立 Huffman 樹、輸出 `.huff` 檔並顯示壓縮率。
+2. `Decompress File`：選擇 `.huff` 檔與輸出路徑，完成後會顯示還原大小。
+3. 狀態欄會提示錯誤（檔案不存在、超過 10 MB、無法開啟等）。
+
+### 測試 Runner（可選）
+
+`test_runner.asm` 會呼叫 `Pro2_CompressFile` 與 `DecompressHuffmanFile`，最後用 `CompareFiles` 驗證原始檔與還原檔是否 byte-by-byte 相同：
+
+```
+INVOKE Pro2_CompressFile, ADDR srcFile, ADDR compressed
+INVOKE DecompressHuffmanFile, ADDR compressed, ADDR restored
+INVOKE CompareFiles, ADDR srcFile, ADDR restored ; EAX = 1 代表一致
 ```
 
-#### 進階工具函式（6 個）
-```asm
-ValidateInputFile(path)         ; 驗證檔案（大小、存在性）
-GetCompressedFileSize(path)          ; 獲得檔案大小
-CopyFileData(src, dest)   ; 複製檔案
-CompareFiles(file1, file2)           ; 比對兩個檔案是否相同
-ClearBuffer(buffer, size)  ; 清除緩衝區
-GenerateOutputFilename(in,out,ext)   ; 自動產生輸出檔名
-```
+自訂測試時可替換 `srcFile` 為 UTF-8 或 UTF-16 檔案，演算法會保持原始編碼。
 
-### 錯誤處理
-- 檔案不存在檢測
-- 檔案太大檢測（限制 10MB）
-- 空檔案檢測
-- 權限錯誤處理
-- 友善的錯誤訊息提示
-
-## 檔案結構
+## 專案結構
 
 ```
 Project32_VS2022/
-├── HuffmanGUI.asm      # ? 主程式（本模組）
-├── HuffmanGUI.rc       # ? GUI 資源檔
-├── resource.h     # ? 資源定義
-├── test_input.txt      # 測試用文字檔
-├── Project.sln  # Visual Studio 方案
-├── Project.vcxproj     # 專案設定檔
-├── .gitignore     # Git 忽略檔案
-└── README.md # 本文件
+├── Decoder.asm              # 解壓縮器（建樹 + 逐位元讀取）
+├── HuffmanDataAnalyst.asm   # 建頻率表、節點配置、Huffman Tree
+├── pro2.asm                 # Huffman 編碼器、位元緩衝器
+├── HuffmanGUI.asm/.rc       # Win32 GUI 與檔案 I/O API 包裝
+├── resource.h               # GUI 資源 ID
+├── test_runner.asm          # 自動化壓縮/解壓測試
+├── test_input.txt           # 預設 UTF-8 測試檔（可自行替換）
+├── Project.sln / .vcxproj   # Visual Studio 解決方案與專案檔
+└── README.md                # 目前文件
 ```
 
-## 開發環境
+## 主要模組說明
 
-- **作業系統**: Windows 10/11
-- **開發工具**: Visual Studio 2022
-- **組譯器**: Microsoft Macro Assembler (MASM)
-- **函式庫**: Irvine32 Library
-- **語言**: x86 Assembly Language
+- **HuffmanDataAnalyst.asm**：
+    - `CountFrequencyFromFile` 以 4 KB buffer 掃描檔案。
+    - `BuildHuffmanTree`/`FindMin` 透過指標陣列與靜態 node pool 建立樹。
+- **pro2.asm**：
+    - `BuildCodes` 以遞迴方式產生每個符號的 bit pattern。
+    - `BitBufferWriteBit`/`BitBufferFlush` 實作 LSB-first 位元緩衝。
+    - `Pro2_EncodeHuffman` 寫出檔頭（樹大小 + 樹結構 + 原始檔大小）與壓縮資料。
+- **Decoder.asm**：
+    - `RebuildNodeFromBuffer` 依前序序列還原樹。
+    - 逐 bit 走樹寫回原始位元組，確保輸出大小等於檔頭紀錄。
+- **HuffmanGUI.asm**：
+    - 封裝 `OpenFileForRead/OpenFileForWrite/...` 等 15 個共用 I/O 函式。
+    - 管理對話盒、訊息迴圈與錯誤提示。
 
-## 安裝與使用
+## 測試建議
 
-### 前置需求
+1. 以 UTF-8 建立 `test_input.txt`，內容可含英文、中文、符號或二進位資料。
+2. 執行 GUI 或 `test_runner.exe` 壓縮並解壓。
+3. 使用 `CompareFiles` 或 `fc /b original restored` 驗證輸出。
+4. 若要測 UTF-16 或其他編碼，只要輸入檔本身使用該編碼，流程會如實保留。
 
-1. Visual Studio 2022（含 MASM）
-2. Irvine32 Library
-3. Windows SDK
+## 注意事項
 
-### 編譯步驟
-
-1. 開啟專案檔 `Project.sln`
-2. 設定專案屬性：
-   - Linker → Input → Additional Dependencies:
-     ```
-     kernel32.lib
-     user32.lib
-     comdlg32.lib
-     irvine32.lib
-     ```
-   - Linker → System → SubSystem: `Windows (/SUBSYSTEM:WINDOWS)`
-3. 按 `F5` 編譯並執行
-
-### 使用方法
-
-1. 執行 `HuffmanGUI.exe`
-2. 介面說明：
-   - **Compress File** 按鈕：選擇要壓縮的文字檔
-   - **Decompress File** 按鈕：選擇要解壓縮的 .huf 檔
-   - **狀態顯示區**：顯示操作進度和壓縮統計
-   - **Exit** 按鈕：結束程式
-
-> **注意**：目前壓縮/解壓縮功能為模擬版本，實際演算法需要人員二、三、四實作。
-
-## API 使用說明
-
-### 給其他組員的整合指南
-
-其他組員可以呼叫以下函式來完成檔案操作：
-
-#### 範例 1：讀取檔案內容
-
-```asm
-; 開啟檔案
-INVOKE OpenFileForRead, ADDR szFilePath
-.IF eax == INVALID_HANDLE_VALUE
-    ; 錯誤處理
-    ret
-.ENDIF
-mov hFile, eax
-
-; 讀取資料
-read_loop:
-    INVOKE ReadFileByte, hFile
-    .IF eax == -1
-        jmp read_done
-    .ENDIF
-    ; 處理讀取的位元組（EAX）
-    jmp read_loop
-
-read_done:
-; 關閉檔案
-INVOKE CloseFileHandle, hFile
-```
-
-#### 範例 2：寫入檔案
-
-```asm
-; 開啟檔案寫入
-INVOKE OpenFileForWrite, ADDR szOutputPath
-mov hFile, eax
-
-; 寫入資料
-mov al, 'A'  ; 要寫入的字元
-INVOKE WriteFileByte, hFile, al
-
-; 批次寫入
-INVOKE WriteFileBuffer, hFile, ADDR buffer, 100
-
-; 關閉檔案
-INVOKE CloseFileHandle, hFile
-```
-
-#### 範例 3：檔案驗證
-
-```asm
-; 驗證輸入檔案
-INVOKE ValidateInputFile, ADDR szFilePath
-.IF eax == 0
-    ; 檔案無效
-    ret
-.ENDIF
-mov fileSize, eax  ; EAX = 檔案大小
-```
-
-## GUI 介面預覽
-
-```
-┌─────────────────────────────────────┐
-│   Huffman File Compressor v1.0  [X] │
-├─────────────────────────────────────┤
-│  Huffman Coding File Compression    │
-│     Tool           │
-│                 │
-│  Select an operation:           │
-│        │
-│  ┌───────────────────────────────┐  │
-│  │      Compress File │  │
-│  └───────────────────────────────┘  │
-│           │
-│  ┌───────────────────────────────┐  │
-│  │    Decompress File   │  │
-│  └───────────────────────────────┘  │
-│  │
-│  Status:          │
-│  [Ready. Please select an operation.]│
-│        │
-│      ┌──────┐          │
-│      │ Exit │      │
-│      └──────┘   │
-└─────────────────────────────────────┘
-```
-
-## 測試功能
-
-### 已測試項目
-
-- ? GUI 視窗正常顯示
-- ? 檔案開啟對話框運作正常
-- ? 檔案儲存對話框運作正常
-- ? 檔案讀取功能正常
-- ? 檔案寫入功能正常
-- ? 檔案大小限制檢查
-- ? 空檔案檢測
-- ? 檔案不存在錯誤處理
-- ? 狀態訊息更新
-- ? 壓縮率計算顯示
-
-### 測試方法
-
-1. 選擇一個文字檔進行「壓縮」
-2. 程式會模擬壓縮並顯示統計資訊
-3. 選擇輸出位置
-4. 檢查所有檔案操作是否正常
-
-## 技術重點
-
-### 使用的 Windows API
-- `CreateFileA` - 檔案開啟/建立
-- `ReadFile` - 檔案讀取
-- `WriteFile` - 檔案寫入
-- `GetFileSize` - 取得檔案大小
-- `SetFilePointer` - 移動檔案指標
-- `DialogBoxParamA` - 建立對話框
-- `GetOpenFileNameA` - 檔案開啟對話框
-- `GetSaveFileNameA` - 檔案儲存對話框
-- `MessageBoxA` - 訊息視窗
-
-### 組合語言技巧
-- STRUCT 定義（OPENFILENAME）
-- 區域變數（LOCAL）
-- 記憶體操作（ADDR, OFFSET, PTR）
-- 字串處理
-- 錯誤處理流程
-
-## 整合點說明
-
-目前程式中預留了整合點，供其他組員加入壓縮/解壓縮演算法：
-
-**在 `CompressFile` 程序中：**
-```asm
-; TODO: 在這裡呼叫人員二、三的函式
-; INVOKE BuildHuffmanTree, ADDR szInputFile
-; mov pTreeRoot, eax
-; .IF eax != NULL
-;     INVOKE CompressWithHuffman, pTreeRoot, ADDR szInputFile, ADDR szOutputFile
-;     ...
-; .ENDIF
-```
-
-**在 `DecompressFile` 程序中：**
-```asm
-; TODO: 在這裡呼叫人員四的函式
-; INVOKE DecompressHuffmanFile, ADDR szInputFile, ADDR szOutputFile
-; .IF eax != 0
-;     ; 解壓縮成功
-; ...
-; .ENDIF
-```
-
-## 專案資訊
-
-- **GitHub Repository**: https://github.com/Jiruiii/Huffman
-- **開發者**: jiruiii
-- **Email**: ray2017good@gmail.com
-- **角色**: 人員一 - GUI 與檔案 I/O 總管
+- 壓縮檔檔頭格式：`[4 bytes treeBytes][preorder tree bytes][4 bytes originalSize][bitstream...]`。
+- `test_input.txt` 採 UTF-8 儲存，以避免某些編輯器將 UTF-16 BOM 顯示為方塊字符。
+- 清單中的 Debug/.vs/臨時輸出都已移除，若重新建置請將生成的資料夾加入 `.gitignore`。
 
 ## 授權
 
-本專案為學習專案，僅供學習參考使用。
-
----
-
-**Made with ?? using x86 Assembly Language**
+此專案為教學/課程使用，歡迎在非商業情境下參考與修改，如需引用請標註來源。歡迎 Issues/PR 一起改進！
