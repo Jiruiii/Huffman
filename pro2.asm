@@ -1,4 +1,5 @@
 .386
+.model flat, stdcall
 option casemap :none
 
 INCLUDE Irvine32.inc
@@ -14,16 +15,10 @@ FILE_BEGIN        EQU 0
 FILE_CURRENT      EQU 1
 FILE_END          EQU 2
 
-; Declare WinAPI prototypes so INVOKE accepts correct argument counts
-CreateFileA PROTO :PTR, :DWORD, :DWORD, :DWORD, :DWORD, :DWORD, :DWORD
-ReadFile     PROTO :DWORD, :PTR, :DWORD, :PTR, :DWORD
-WriteFile    PROTO :DWORD, :PTR, :DWORD, :PTR, :DWORD
-SetFilePointer PROTO :DWORD, :DWORD, :PTR, :DWORD
-CloseHandle  PROTO :DWORD
 includelib kernel32.lib
 
-EXTERN BuildHuffmanTree:PROC
-EXTERN BuildHuffmanTree_File:PROC
+BuildHuffmanTree PROTO
+BuildHuffmanTree_File PROTO, inputPathPtr:PTR BYTE
 
 ; Re-declare HuffNode structure to match pro.asm
 HuffNode STRUCT
@@ -55,6 +50,7 @@ TreeBytes     DWORD 0
 OriginalSize  DWORD 0
 HeaderZero    DWORD 0
 TempBytesWritten DWORD 0
+DebugErrorCode DWORD 0
 
 ; Simple message
 msg_header   BYTE "--- Huffman Header (symbol:len) ---",0dh,0ah,0
@@ -65,10 +61,12 @@ msg_done     BYTE "--- Done ---",0dh,0ah,0
 msg_out_open_err BYTE "Failed to open/create output file",0dh,0ah,0
 msg_in_open_err  BYTE "Failed to open input file",0dh,0ah,0
 msg_colon BYTE ": ",0
+msg_debug_path BYTE "Trying to open file: ",0
+msg_debug_error BYTE "Error code: ",0
 
 .code
 ; Exports
-public Pro2_BuildCodes
+public BuildCodes
 public Pro2_EncodeHuffman
 public WriteFileByte
 public Pro2_SerializeTreePreorder
@@ -81,8 +79,8 @@ public Pro2_CompressFile
 ; ------------------------------------------------------------
 BitBufferInit PROC
     mov byte ptr OutByte, 0
-    mov dword ptr OutBitCnt, 0
-    ret
+ mov dword ptr OutBitCnt, 0
+  ret
 BitBufferInit ENDP
 
 ; stdcall: [ebp+8] = bit (DWORD)
@@ -96,22 +94,22 @@ BitBufferWriteBit PROC
     mov eax, dword ptr [ebp+8]    ; bit value
     mov ecx, dword ptr OutBitCnt  ; current bit index
     cmp eax, 0
-    je .no_set
+    je no_set
     ; set bit in OutByte: OutByte |= (1 << OutBitCnt)
     mov edx, 1
     mov ebx, ecx
     mov cl, bl
-    shl edx, cl
+  shl edx, cl
     movzx eax, byte ptr OutByte
     or al, dl
     mov byte ptr OutByte, al
-.no_set:
+no_set:
     ; increment OutBitCnt
     inc dword ptr OutBitCnt
     ; if OutBitCnt == 8 -> flush
     mov eax, dword ptr OutBitCnt
     cmp eax, 8
-    jne .bb_done
+    jne bb_done
 
     ; flush byte: write to output file (WriteFileByte is stdcall and removes param)
     mov al, byte ptr OutByte
@@ -121,30 +119,30 @@ BitBufferWriteBit PROC
     mov byte ptr OutByte, 0
     mov dword ptr OutBitCnt, 0
 
-.bb_done:
+bb_done:
     pop edx
     pop ecx
-    pop ebx
+ pop ebx
     mov esp, ebp
     pop ebp
     ret 4
 BitBufferWriteBit ENDP
 
 BitBufferFlush PROC
-    push ebp
+  push ebp
     mov ebp, esp
     push eax
     mov eax, dword ptr OutBitCnt
     cmp eax, 0
-    je .bf_ret
+    je bf_ret
     mov al, byte ptr OutByte
     push eax
     call WriteFileByte
     mov byte ptr OutByte, 0
     mov dword ptr OutBitCnt, 0
-.bf_ret:
+bf_ret:
     pop eax
-    mov esp, ebp
+ mov esp, ebp
     pop ebp
     ret
 BitBufferFlush ENDP
@@ -162,7 +160,7 @@ WriteFileByte PROC
     push edi
 
     mov eax, dword ptr [ebp+8]
-    mov bl, al
+ mov bl, al
     ; prepare buffer
     lea esi, WriteBuf
     mov byte ptr [esi], bl
@@ -194,46 +192,46 @@ Pro2_SerializeTreePreorder PROC
     je stp_ret
 
     ; check leaf
-    mov eax, (HuffNode PTR [esi]).left
+mov eax, (HuffNode PTR [esi]).left
     mov edx, (HuffNode PTR [esi]).right
     cmp eax, 0
-    jne stp_internal
+jne stp_internal
     cmp edx, 0
-    jne stp_internal
+ jne stp_internal
     ; leaf: write 1 then symbol
     push 1
     call WriteFileByte
     ; write symbol
-    mov al, (HuffNode PTR [esi]).char
+  mov al, (HuffNode PTR [esi]).char
     push eax
     call WriteFileByte
-    jmp stp_ret
+jmp stp_ret
 
 stp_internal:
     push 0
     call WriteFileByte
-    ; recurse left then right
+ ; recurse left then right
     ; left
     mov eax, (HuffNode PTR [esi]).left
     cmp eax, 0
-    je .skip_left_rec
+    je skip_left_rec
     push eax
     call Pro2_SerializeTreePreorder
-.skip_left_rec:
+skip_left_rec:
     ; right
     mov eax, (HuffNode PTR [esi]).right
     cmp eax, 0
-    je .skip_right_rec
+    je skip_right_rec
     push eax
     call Pro2_SerializeTreePreorder
-.skip_right_rec:
+skip_right_rec:
 
 stp_ret:
     pop esi
     pop ebx
     mov esp, ebp
     pop ebp
-    ret 4
+ret 4
 Pro2_SerializeTreePreorder ENDP
 
 ; ------------------------------------------------------------
@@ -244,12 +242,12 @@ Pro2_SerializeTreePreorder ENDP
 BuildCodesRec PROC
     push ebp
     mov ebp, esp
-    push ebx
+ push ebx
     push esi
     push edi
 
     mov esi, dword ptr [ebp+8]   ; nodePtr
-    mov ebx, dword ptr [ebp+12]  ; curBits
+  mov ebx, dword ptr [ebp+12]  ; curBits
     mov edi, dword ptr [ebp+16]  ; curLen
 
     cmp esi, 0
@@ -265,15 +263,15 @@ BuildCodesRec PROC
     jne bcr_notleaf
     ; leaf: store code
     mov al, (HuffNode PTR [esi]).char
-    movzx ecx, al           ; ecx = symbol
-    ; store bits (4 bytes)
+    movzx ecx, al       ; ecx = symbol
+; store bits (4 bytes)
     lea esi, CodeBits
     mov edx, ecx
     shl edx, 2
     add esi, edx
     mov [esi], ebx
-    ; store len (byte)
-    lea esi, CodeLen
+; store len (byte)
+  lea esi, CodeLen
     add esi, ecx
     mov eax, edi
     mov byte ptr [esi], al
@@ -284,40 +282,49 @@ bcr_notleaf:
     mov eax, (HuffNode PTR [esi]).left
     cmp eax, 0
     je bcr_skip_left
-    push edi
-    push ebx
-    push eax
-    ; adjust pushed curLen: top of stack currently curLen; we want curLen+1
-    ; replace pushed curLen with curLen+1
-    mov eax, dword ptr [esp]
-    add dword ptr [esp], 1
+    
+    ; �p�� curLen+1
+    mov ecx, edi
+    inc ecx
+    
+    ; �����T���� push �Ѽơ]stdcall�G�q�k�쥪�^
+    push ecx         ; curLen+1
+    push ebx       ; curBits
+    push eax       ; nodePtr
     call BuildCodesRec
+    
 bcr_skip_left:
     ; Call right
     mov eax, (HuffNode PTR [esi]).right
     cmp eax, 0
     je bcr_skip_right
+    
     ; compute newBits = ebx | (1<<edi)
-    mov ecx, edi
+mov ecx, edi
     mov eax, 1
-    mov cl, cl
+    cmp cl, 32  ; �����W�L 32 bits
+    jge bcr_skip_right
     shl eax, cl
     mov edx, ebx
     or edx, eax
-    ; push curLen+1 then newBits then node
-    push edi
-    ; increment the pushed curLen value
-    mov eax, dword ptr [esp]
-    add dword ptr [esp], 1
-    push edx
-    push eax
-    call BuildCodesRec
+    
+    ; �p�� curLen+1
+    mov ecx, edi
+    inc ecx
+ 
+    ; �����T���� push �Ѽ�
+    push ecx         ; curLen+1
+    push edx   ; newBits
+    mov eax, (HuffNode PTR [esi]).right
+    push eax     ; nodePtr
+  call BuildCodesRec
+    
 bcr_skip_right:
 
 bcr_done:
     pop edi
     pop esi
-    pop ebx
+  pop ebx
     mov esp, ebp
     pop ebp
     ret 12
@@ -328,12 +335,12 @@ BuildCodesRec ENDP
 ; ------------------------------------------------------------
 BuildCodes PROC
     push ebp
-    mov ebp, esp
+ mov ebp, esp
     push ebx
     push esi
     push edi
 
-    mov esi, dword ptr [ebp+8] ; root pointer
+  mov esi, dword ptr [ebp+8] ; root pointer
     ; clear CodeBits
     mov ecx, 256
     lea edi, CodeBits
@@ -343,8 +350,8 @@ ClearBitsLoop:
     add edi, 4
     loop ClearBitsLoop
     ; clear CodeLen
-    mov ecx, 256
-    lea edi, CodeLen
+mov ecx, 256
+ lea edi, CodeLen
     mov al, 0
 ClearLensLoop:
     mov [edi], al
@@ -353,8 +360,8 @@ ClearLensLoop:
 
     ; call recursive with curBits=0, curLen=0 (stdcall: callee cleans args)
     push 0
-    push 0
-    push esi
+  push 0
+ push esi
     call BuildCodesRec
 
     pop edi
@@ -366,8 +373,8 @@ ClearLensLoop:
 BuildCodes ENDP
 
 ; ------------------------------------------------------------
-; EncodeHuffman(rootPtr, inputPtr)
-; rootPtr at [ebp+8], inputPtr at [ebp+12]
+; EncodeHuffman(rootPtr, inputPtr, outputPtr)
+; rootPtr at [ebp+8], inputPtr at [ebp+12], outputPtr at [ebp+16]
 ; ------------------------------------------------------------
 Pro2_EncodeHuffman PROC
     push ebp
@@ -379,20 +386,61 @@ Pro2_EncodeHuffman PROC
     mov esi, dword ptr [ebp+8] ; rootPtr
     mov edi, dword ptr [ebp+12] ; inputPathPtr
 
+    ; Debug: ��ܭn�}��??��??��??
+    mov edx, OFFSET msg_debug_path
+    call WriteString
+    mov edx, edi
+    call WriteString
+ call Crlf
+
     ; Open input file using CreateFileA
     INVOKE CreateFileA, edi, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0
-    mov dword ptr InFileHandle, eax
+ mov dword ptr InFileHandle, eax
+    
+    ; Debug: ��� CreateFileA ��????
     cmp eax, INVALID_HANDLE_VALUE
-    je open_in_err
+    jne open_success
+    
+    ; ��?? Windows ���~??
+    INVOKE GetLastError
+    mov DebugErrorCode, eax
 
-    ; Create output filename by copying input path into out_filename and appending ".huff"
-    mov esi, dword ptr [ebp+12] ; src inputPathPtr
-    lea edi, out_filename
-CopyNameLoop:
+    mov edx, OFFSET msg_debug_error
+    call WriteString
+    mov eax, DebugErrorCode
+    call WriteDec
+    call Crlf
+
+    jmp open_in_err
+
+open_success:
+    ; �ˬd�O�_���ۭq��X��??
+    mov eax, dword ptr [ebp+16] ; outputPathPtr
+    cmp eax, 0
+    je auto_generate_name
+    
+    ; �ϥΦۭq��X��??
+    mov esi, eax
+  lea edi, out_filename
+CopyOutputLoop:
     mov al, [esi]
     mov [edi], al
     cmp al, 0
-    je CopyDone
+    je output_name_done
+    inc esi
+    inc edi
+    jmp CopyOutputLoop
+    
+auto_generate_name:
+    ; �~��??�`�y�{...
+    ; Create output filename by copying input path into out_filename and appending ".huff"
+    mov esi, dword ptr [ebp+12] ; src inputPathPtr
+ lea edi, out_filename
+CopyNameLoop:
+    mov al, [esi]
+    mov [edi], al
+cmp al, 0
+  je CopyDone
     inc esi
     inc edi
     jmp CopyNameLoop
@@ -400,22 +448,32 @@ CopyDone:
     ; edi points at trailing NUL; append .huff
     mov byte ptr [edi], '.'
     inc edi
-    mov byte ptr [edi], 'h'
-    inc edi
+  mov byte ptr [edi], 'h'
+  inc edi
     mov byte ptr [edi], 'u'
-    inc edi
+  inc edi
     mov byte ptr [edi], 'f'
     inc edi
     mov byte ptr [edi], 'f'
-    inc edi
+  inc edi
     mov byte ptr [edi], 0
 
+output_name_done:
     ; init bit buffer and build codes
+    mov esi, dword ptr [ebp+8] ; restore rootPtr
+    
+    ; �����G�ˬd�ڸ`�I
+    mov edx, OFFSET msg_debug_path
+    call WriteString
+    mov eax, esi
+  call WriteHex
+    call Crlf
+    
     call BitBufferInit
     push esi
     call BuildCodes
 
-    ; Open output file with CreateFileA using inputPath + ".huff"
+ ; Open output file with CreateFileA using inputPath + ".huff"
     INVOKE CreateFileA, ADDR out_filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0
     mov dword ptr OutFileHandle, eax
     cmp eax, INVALID_HANDLE_VALUE
@@ -435,7 +493,7 @@ CopyDone:
     ; subtract the 4-byte placeholder at file start
     sub TreeBytes, 4
 
-    ; compute original input file size by seeking to end of input file
+  ; compute original input file size by seeking to end of input file
     INVOKE SetFilePointer, dword ptr InFileHandle, 0, 0, FILE_END
     mov OriginalSize, eax
     ; rewind input file to beginning for subsequent reading
@@ -451,143 +509,169 @@ CopyDone:
     ; move file pointer back to end to continue writing compressed data
     INVOKE SetFilePointer, dword ptr OutFileHandle, 0, 0, FILE_END
 
+    ; ?? �״_�G�T�O��J�ɮ׫��Ц^��}�Y
+    INVOKE SetFilePointer, dword ptr InFileHandle, 0, 0, FILE_BEGIN
+
     ; write simple header to console for verification
-    INVOKE WriteString, ADDR msg_header
+    mov edx, OFFSET msg_header
+    call WriteString
     ; iterate symbols and print symbol:len
-    mov ecx, 256
-    xor ebx, ebx ; index
+  mov ecx, 256
+ xor ebx, ebx ; index
 PrintHeaderLoop:
     mov al, CodeLen[ebx]
-    cmp al, 0
-    je .nextSym
+cmp al, 0
+  je nextSym
     mov eax, ebx
-    INVOKE WriteDec, eax
-    INVOKE WriteString, ADDR msg_colon
-    movzx eax, al
-    INVOKE WriteDec, eax
-    INVOKE Crlf
-.nextSym:
+    call WriteDec
+    mov edx, OFFSET msg_colon
+    call WriteString
+    movzx eax, byte ptr CodeLen[ebx]
+    call WriteDec
+    call Crlf
+nextSym:
     inc ebx
     loop PrintHeaderLoop
 
-    ; Now compress input file by reading chunks
-    INVOKE WriteString, ADDR msg_compress
+  ; Now compress input file by reading chunks
+  mov edx, OFFSET msg_compress
+ call WriteString
+
+    ; �����G�ˬd�ɮ׫��Ц�m
+    INVOKE SetFilePointer, dword ptr InFileHandle, 0, 0, FILE_CURRENT
+    call WriteDec
+    mov edx, OFFSET msg_colon
+    call WriteString
+    call Crlf
+
     mov eax, dword ptr InFileHandle
     cmp eax, INVALID_HANDLE_VALUE
-    je .open_in_err
+    je open_in_err
+    
 ReadChunkLoop:
     ; ReadFile(InFileHandle, ReadBuf, 4096, &ReadCount, 0)
     INVOKE ReadFile, dword ptr InFileHandle, ADDR ReadBuf, 4096, ADDR ReadCount, 0
-    ; check ReadCount
+    
+    ; �����G���Ū�����r�`��
     mov eax, ReadCount
+    call WriteDec
+    mov edx, OFFSET msg_colon
+call WriteString
+    call Crlf
+    
+ ; check ReadCount
+mov eax, ReadCount
     cmp eax, 0
-    je flush
+  je flush
     ; process ReadCount bytes in ReadBuf
     mov ecx, eax
-    xor ebx, ebx    ; buffer index
+    xor ebx, ebx ; buffer index
 ProcessByteLoop:
     mov al, ReadBuf[ebx]
-    movzx edx, al   ; symbol in EDX
+    movzx edx, al; symbol in EDX
     movzx esi, byte ptr CodeLen[edx]
     cmp esi, 0
-    je skipSym
-    mov eax, dword ptr CodeBits[edx]
-    ; EAX holds code bits (LSB-first), ESI = length
+  je skipSym
+    ; Code bits fetched inside loop (LSB-first), ESI = length
+    push ecx
     xor ecx, ecx    ; bit index
 WriteBitsLoop2:
-    cmp ecx, esi
-    jge .nextByte
-    mov eax, dword ptr CodeBits[edx]
-    mov cl, byte ptr ecx
+ cmp ecx, esi
+ jge nextByte
+    push edx
+    mov eax, dword ptr CodeBits[edx*4]
+ push ecx
+    mov cl, byte ptr [esp]
     shr eax, cl
+    pop ecx
     and eax, 1
     push eax
     call BitBufferWriteBit
-    inc ecx
+    pop edx
+ inc ecx
     jmp WriteBitsLoop2
-.nextByte:
+nextByte:
+    pop ecx
 skipSym:
     inc ebx
-    dec dword ptr ReadCount
-    dec ecx         ; restore ecx usage for outer loop compare
-    mov ecx, ReadCount
+    dec ecx
     cmp ecx, 0
     jne ProcessByteLoop
     jmp ReadChunkLoop
 
 open_in_err:
-    INVOKE WriteString, ADDR msg_in_open_err
+    mov edx, OFFSET msg_in_open_err
+  call WriteString
     jmp cleanupAndReturn
 
 open_out_err:
-    INVOKE WriteString, ADDR msg_out_open_err
+    mov edx, OFFSET msg_out_open_err
+    call WriteString
     jmp cleanupAndReturn
 
 cleanupAndReturn:
     ; attempt to close any open handles
     cmp dword ptr InFileHandle, 0
-    je .no_in
-    INVOKE CloseHandle, dword ptr InFileHandle
-.no_in:
+    je no_in
+    INVOKE CloseHandle, InFileHandle
+no_in:
     cmp dword ptr OutFileHandle, 0
-    je .no_out
-    INVOKE CloseHandle, dword ptr OutFileHandle
-.no_out:
+  je no_out
+ INVOKE CloseHandle, OutFileHandle
+no_out:
     pop edi
     pop esi
     pop ebx
     mov esp, ebp
     pop ebp
-    ret 8
+  ret 12  ; �M?? 3 �ӰѼ� (rootPtr, inputPtr, outputPtr)
 
 flush:
-    call BitBufferFlush
-    INVOKE WriteString, ADDR msg_done
+call BitBufferFlush
+    mov edx, OFFSET msg_done
+    call WriteString
     ; Close handles
-    INVOKE CloseHandle, dword ptr InFileHandle
-    INVOKE CloseHandle, dword ptr OutFileHandle
+    INVOKE CloseHandle, InFileHandle
+  INVOKE CloseHandle, OutFileHandle
 
     pop edi
     pop esi
     pop ebx
     mov esp, ebp
     pop ebp
-    ret 8
+    ret 12  ; �M?? 3 �ӰѼ�
 Pro2_EncodeHuffman ENDP
 
 
 ; ------------------------------------------------------------
-; CompressFile(inputPathPtr)
+; CompressFile(inputPathPtr, outputPathPtr)
 ; Calls BuildHuffmanTree (from HuffmanDataAnalyst), then EncodeHuffman
-; stdcall: caller pushes inputPathPtr; callee cleans stack (ret 4)
+; If outputPathPtr is NULL, auto-generates output filename
+; stdcall: caller pushes inputPathPtr and outputPathPtr; callee cleans stack
 ; ------------------------------------------------------------
-Pro2_CompressFile PROC
-    push ebp
-    mov ebp, esp
-    push ebx
+Pro2_CompressFile PROC, inputPathPtr:PTR BYTE, outputPathPtr:PTR BYTE
+push ebx
     push esi
-    push edi
+  push edi
 
-    mov edi, dword ptr [ebp+8] ; inputPathPtr
+    mov edi, inputPathPtr
+  mov esi, outputPathPtr
 
     ; Build Huffman tree from input file (use file-based wrapper)
-    push edi                 ; push inputPathPtr
-    call BuildHuffmanTree_File ; returns rootPtr in EAX
-    mov ebx, eax              ; rootPtr
+ INVOKE BuildHuffmanTree_File, edi ; returns rootPtr in EAX
+    mov ebx, eax          ; rootPtr
 
-    ; Call EncodeHuffman(rootPtr, inputPathPtr)
-    push edi                  ; inputPathPtr (second arg)
-    push ebx                  ; rootPtr (first arg)
-    call Pro2_EncodeHuffman        ; stdcall, will clean 8 bytes
+    ; Call EncodeHuffman(rootPtr, inputPathPtr, outputPathPtr)
+  push esi ; outputPathPtr (third arg) - can be NULL
+    push edi ; inputPathPtr (second arg)
+    push ebx ; rootPtr (first arg)
+    call Pro2_EncodeHuffman ; stdcall, will clean 12 bytes
 
     ; cleanup and return
     pop edi
     pop esi
     pop ebx
-    mov esp, ebp
-    pop ebp
-    ret 4
+    ret
 Pro2_CompressFile ENDP
 
 end
-

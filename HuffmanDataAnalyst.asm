@@ -5,20 +5,15 @@ option casemap :none
 ; Include Irvine32 library
 INCLUDE Irvine32.inc
 
+; 導出公用函數
 PUBLIC BuildHuffmanTree
 PUBLIC BuildHuffmanTree_File
 
 includelib kernel32.lib
 
-; File read buffer for CountFrequencyFromFile
-ReadBuf2 BYTE 4096 DUP(?)
-ReadCount2 DWORD 0
-InFileHandle2 DWORD 0
-
-
-main        EQU start@0
-
+; --------------------------------------------------------------------
 ; Huffman Tree Node Structure Definition (Ch. 10 STRUCT Application)
+; --------------------------------------------------------------------
 HuffNode STRUCT
     freq  DWORD ?     ; Total occurrences (frequency) of the node/subtree
     char  BYTE  ?     ; Stored character (leaf nodes only, 0-255)
@@ -31,6 +26,11 @@ HuffNode ENDS
 ; --------------------------------------------------------------------
 ; Data Segment Variables
 ; --------------------------------------------------------------------
+; File read buffer for CountFrequencyFromFile
+ReadBuf2 BYTE 4096 DUP(?)
+ReadCount2 DWORD 0
+InFileHandle2 DWORD 0
+
 ; Frequency table for 256 bytes (each DWORD is 4 bytes)
 FrequencyTable DWORD 256 DUP(0)
 
@@ -95,18 +95,16 @@ CountFrequency ENDP
 ; --------------------------------------------------------------------
 ; PROC: CountFrequencyFromFile (stdcall)
 ; Purpose: Read an input file and fill FrequencyTable
-; Params: [esp+4] = pointer to NUL-terminated path (ANSI)
+; Params: inputPath = pointer to NUL-terminated path (ANSI)
 ; Returns: EAX = 1 on success, 0 on failure
 ; --------------------------------------------------------------------
-CountFrequencyFromFile PROC
-    push ebp
-    mov ebp, esp
+CountFrequencyFromFile PROC, inputPath:PTR BYTE
     push ebx
     push esi
     push edi
     push ecx
 
-    mov esi, dword ptr [ebp+8] ; input path pointer
+    mov esi, inputPath
     ; Open file
     INVOKE CreateFileA, esi, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0
     mov InFileHandle2, eax
@@ -147,22 +145,18 @@ CountFrequencyFromFile PROC
     pop edi
     pop esi
     pop ebx
-    mov esp, ebp
-    pop ebp
-    ret 4
+    ret
 CountFrequencyFromFile ENDP
 
 
 ; New wrapper: BuildHuffmanTree_File(inputPathPtr)
 ; stdcall: caller pushes inputPathPtr; returns EAX = rootPtr or 0
-BuildHuffmanTree_File PROC
-    push ebp
-    mov ebp, esp
+BuildHuffmanTree_File PROC, inputPathPtr:PTR BYTE
     push ebx
     push esi
     push edi
 
-    mov esi, dword ptr [ebp+8] ; inputPathPtr
+    mov esi, inputPathPtr
     ; clear FrequencyTable
     mov ecx, 256
     lea edi, FrequencyTable
@@ -172,21 +166,21 @@ bf_clear_loop:
     add edi, 4
     loop bf_clear_loop
 
+    ; RESET node allocation pointer each build (fix for multiple runs)
+    mov NextNodePtr, OFFSET NodeBuffer
+
     ; count frequencies from file
-    push esi
-    call CountFrequencyFromFile
+    INVOKE CountFrequencyFromFile, esi
     ; ignore return for now
 
-    ; call existing BuildHuffmanTree (no args)
+  ; call existing BuildHuffmanTree (no args)
     call BuildHuffmanTree
     ; EAX is rootPtr
 
     pop edi
     pop esi
     pop ebx
-    mov esp, ebp
-    pop ebp
-    ret 4
+    ret
 BuildHuffmanTree_File ENDP
 
 ; --------------------------------------------------------------------
@@ -338,7 +332,6 @@ BuildHuffmanTree PROC
 
     ; Read P2 (idx2 = EBX)
     PUSH EAX            ; Save EAX (idx1)
-    ; (!!! V32 FIX !!!) EBX (idx2) is the index, we must use a scratch register
     MOV EAX, EBX        ; 1. Copy idx2 (EBX) to EAX (scratch register)
     ADD EAX, EAX        ; 2. EAX = idx2 * 2
     ADD EAX, EAX        ; 3. EAX = idx2 * 4
@@ -367,7 +360,7 @@ BuildHuffmanTree PROC
     MOV (HuffNode PTR [EDX]).right, EDI ; Set right child to P2
 
     ; 7. Update NodePointers array
-    ; Put the new node (P_New) in P1's position (EAX)
+    ; Put the new node (P1's position (EAX)
     PUSH EBX            ; Save EBX (idx2)
     MOV EBX, EAX        ; EBX = index (EAX)
     ADD EBX, EBX
@@ -434,28 +427,4 @@ BuildHuffmanTree PROC
     RET
 BuildHuffmanTree ENDP
 
-
-; --------------------------------------------------------------------
-; Main code (for testing Personnel 2's logic)
-; --------------------------------------------------------------------
-main PROC
-    ; 1. Execute frequency count
-    INVOKE CountFrequency
-
-    ; 2. Execute Huffman tree build
-    INVOKE BuildHuffmanTree
-    MOV EBX, EAX ; EBX stores the root node pointer (this is Personnel 2's final deliverable)
-
-    ; 3. Display results (optional: for verification)
-    ; V4 Fix: ADDR -> OFFSET
-    MOV EDX, OFFSET msg_root
-    INVOKE WriteString
-    MOV EAX, (HuffNode PTR [EBX]).freq ; Root node frequency (should be 20)
-    INVOKE WriteDec
-    INVOKE Crlf
-
-    ; Program End 
-    INVOKE ExitProcess, 0 
-main ENDP
-
-END main
+END
