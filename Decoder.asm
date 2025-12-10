@@ -24,6 +24,8 @@ TreeBuf BYTE 16384 DUP(?)
 TreeBufIndex DWORD 0
 TreeBytes DWORD 0
 OriginalSize DWORD 0
+MagicNumberExpected DWORD 48554648h  ; "HUFF" in little-endian
+MagicNumberRead DWORD 0
 NODE_BUFFER_SIZE_DEC = 1024 * 16
 NodeBufferDec BYTE NODE_BUFFER_SIZE_DEC DUP(?)
 NextNodePtrDec DWORD OFFSET NodeBufferDec
@@ -42,6 +44,7 @@ msg_rebuild_done BYTE "Tree rebuilt successfully",0dh,0ah,0
 msg_decode_start BYTE "Starting decode loop...",0dh,0ah,0
 msg_bytes_written BYTE "Bytes written: ",0
 msg_codes_header BYTE "--- Rebuilt Code Lengths (sym:len) ---",0dh,0ah,0
+msg_magic_error BYTE "Invalid file format! Not a HUFF compressed file.",0dh,0ah,0
 .code
 
 HuffNode STRUCT
@@ -264,9 +267,37 @@ DecompressHuffmanFile PROC USES esi edi ebx,
         ret
     .ENDIF
     
-    ; 讀取 Header 的部分全部改用 ReadDecodedByte
+    ; Read and validate Magic Number (4 bytes)
+    INVOKE ReadDecodedByte, hIn
+    cmp eax, -1
+    je file_error
+    movzx ebx, al
+    INVOKE ReadDecodedByte, hIn
+    cmp eax, -1
+    je file_error
+    movzx eax, al
+    shl eax, 8
+    or ebx, eax
+    INVOKE ReadDecodedByte, hIn
+    cmp eax, -1
+    je file_error
+    movzx eax, al
+    shl eax, 16
+    or ebx, eax
+    INVOKE ReadDecodedByte, hIn
+    cmp eax, -1
+    je file_error
+    movzx eax, al
+    shl eax, 24
+    or ebx, eax
+    mov MagicNumberRead, ebx
     
-    ; read treeBytes
+    ; Validate Magic Number
+    mov eax, MagicNumberRead
+    cmp eax, MagicNumberExpected
+    jne magic_error
+    
+    ; Read treeBytes (4 bytes)
     INVOKE ReadDecodedByte, hIn
     cmp eax, -1
     je file_error
@@ -449,6 +480,15 @@ decode_end:
     INVOKE CloseFileHandle, hOut
     mov eax, 1
     ret
+    
+magic_error:
+    mov edx, OFFSET msg_magic_error
+    call WriteString
+    INVOKE CloseFileHandle, hIn
+    INVOKE CloseFileHandle, hOut
+    mov eax, 0
+    ret
+    
 file_error:
     INVOKE CloseFileHandle, hIn
     INVOKE CloseFileHandle, hOut

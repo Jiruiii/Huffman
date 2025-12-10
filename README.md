@@ -6,6 +6,10 @@
 
 - **完整 Huffman 流程**：`HuffmanDataAnalyst.asm` 建頻率表與樹、`pro2.asm` 實作編碼器、`Decoder.asm` 執行解碼器。
 - **Win32 GUI**：`HuffmanGUI.asm` 提供壓縮/解壓按鈕、檔案對話盒與狀態欄。
+- **🆕 檔案拖放功能**：直接拖曳檔案（或多個檔案）到視窗即可開始壓縮/解壓縮，自動識別檔案類型。
+- **🆕 批次處理**：支援一次選擇/拖放多個檔案，自動依序處理所有檔案。
+- **🆕 即時進度條**：顯示處理進度（單檔模式或批次模式），提供視覺化回饋。
+- **🆕 Magic Number 驗證**：壓縮檔含 `HUFF` 簽章，解壓縮時會驗證檔案格式，防止錯誤操作。
 - **共用 I/O 函式庫**：封裝 `CreateFile`, `ReadFile`, `WriteFile` 等 WinAPI，供其他模組與測試程式呼叫。
 - **測試腳本**：`test_runner.asm` 可批次壓縮→解壓→比對，確保輸出內容與輸入完全相同。
 - **任意編碼支援**：演算法逐 byte 運作，可處理 UTF-8、UTF-16、ASCII 甚至二進位資料；壓縮後的檔案還原時會保留原本的 encoding。
@@ -25,9 +29,23 @@
 
 ### GUI 操作
 
-1. `Compress File`：選擇任意文字或二進位檔，程式會建立 Huffman 樹、輸出 `.huff` 檔並顯示壓縮率。
-2. `Decompress File`：選擇 `.huff` 檔與輸出路徑，完成後會顯示還原大小。
+**方式一：使用按鈕**
+1. `Compress File(s)`：選擇單個或多個檔案（按住 Ctrl 多選），程式會建立 Huffman 樹、輸出 `.huff` 檔並顯示壓縮率。
+2. `Decompress File(s)`：選擇單個或多個 `.huff` 檔，程式會自動解壓縮。
 3. 狀態欄會提示錯誤（檔案不存在、超過 10 MB、無法開啟等）。
+4. 進度條會顯示當前處理進度。
+
+**方式二：拖放檔案 🆕（支援批次）**
+1. 直接將單個或多個檔案拖曳到程式視窗上
+2. 程式會自動判斷：
+   - `.huff` 檔案 → 批次解壓縮
+   - 其他檔案 → 批次壓縮
+3. 進度條顯示：「Processing file X of Y...」
+4. 完成後顯示：「Batch processing completed! N files processed.」
+
+**進度條說明：**
+- 單檔：顯示 0% → 處理中 → 100%
+- 批次：顯示實際進度（例如：3/5 = 60%）
 
 ### 測試 Runner（可選）
 
@@ -81,7 +99,8 @@ Project32_VS2022/
 
 ## 注意事項
 
-- 壓縮檔檔頭格式：`[4 bytes treeBytes][preorder tree bytes][4 bytes originalSize][bitstream...]`。
+- 壓縮檔檔頭格式（v2.0）：`[4 bytes MAGIC "HUFF"][4 bytes treeBytes][preorder tree bytes][4 bytes originalSize][bitstream...]`。
+- 🆕 加入 Magic Number 驗證，只能解壓縮本程式產生的 `.huff` 檔案。
 - `test_input.txt` 採 UTF-8 儲存，以避免某些編輯器將 UTF-16 BOM 顯示為方塊字符。
 - 清單中的 Debug/.vs/臨時輸出都已移除，若重新建置請將生成的資料夾加入 `.gitignore`。
 

@@ -49,6 +49,7 @@ out_filename  BYTE 260 DUP(0)
 TreeBytes     DWORD 0
 OriginalSize  DWORD 0
 HeaderZero    DWORD 0
+MagicNumber   DWORD 48554648h  ; "HUFF" in little-endian (0x48 0x55 0x46 0x46)
 TempBytesWritten DWORD 0
 DebugErrorCode DWORD 0
 
@@ -479,7 +480,10 @@ output_name_done:
     cmp eax, INVALID_HANDLE_VALUE
     je open_out_err
 
-    ; --- Write header placeholder, serialize tree, then backpatch treeBytes ---
+    ; --- Write header: Magic Number + placeholder for treeBytes, serialize tree, then backpatch treeBytes ---
+    ; write 4-byte Magic Number "HUFF"
+    INVOKE WriteFile, dword ptr OutFileHandle, ADDR MagicNumber, 4, ADDR BytesWritten, 0
+    
     ; write 4-byte placeholder for treeBytes
     INVOKE WriteFile, dword ptr OutFileHandle, ADDR HeaderZero, 4, ADDR BytesWritten, 0
 
@@ -490,8 +494,8 @@ output_name_done:
     ; get current file pointer (end of serialized tree)
     INVOKE SetFilePointer, dword ptr OutFileHandle, 0, 0, FILE_CURRENT
     mov TreeBytes, eax
-    ; subtract the 4-byte placeholder at file start
-    sub TreeBytes, 4
+    ; subtract the 8-byte header (Magic + TreeBytes placeholder) at file start
+    sub TreeBytes, 8
 
   ; compute original input file size by seeking to end of input file
     INVOKE SetFilePointer, dword ptr InFileHandle, 0, 0, FILE_END
@@ -502,8 +506,8 @@ output_name_done:
     ; write originalFileSize (DWORD) immediately after serialized tree
     INVOKE WriteFile, dword ptr OutFileHandle, ADDR OriginalSize, 4, ADDR BytesWritten, 0
 
-    ; backpatch treeBytes at file start
-    INVOKE SetFilePointer, dword ptr OutFileHandle, 0, 0, FILE_BEGIN
+    ; backpatch treeBytes at offset 4 (after Magic Number)
+    INVOKE SetFilePointer, dword ptr OutFileHandle, 4, 0, FILE_BEGIN
     INVOKE WriteFile, dword ptr OutFileHandle, ADDR TreeBytes, 4, ADDR BytesWritten, 0
 
     ; move file pointer back to end to continue writing compressed data

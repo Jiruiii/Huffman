@@ -1,6 +1,6 @@
 //==================================================
 // Huffman File Compressor - Resource File
-// 定義對話框資源
+// 定義視窗與資源
 //==================================================
 
 #include <windows.h>
@@ -11,21 +11,26 @@
 #define IDC_BTN_DECOMPRESS  1002
 #define IDC_EDIT_STATUS     1003
 #define IDC_BTN_EXIT        1004
+#define IDC_PROGRESS_BAR    1005
 
 // 主對話框
-IDD_MAIN_DIALOG DIALOGEX 0, 0, 320, 200
+IDD_MAIN_DIALOG DIALOGEX 0, 0, 320, 220
 STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Huffman File Compressor"
+EXSTYLE WS_EX_ACCEPTFILES
+CAPTION "Huffman File Compressor v2.0"
 FONT 9, "Microsoft Sans Serif"
 BEGIN
     LTEXT        "Huffman Coding File Compression Tool", IDC_STATIC, 14, 10, 292, 16, SS_CENTER
-    LTEXT    "Select an operation:", IDC_STATIC, 14, 35, 292, 10
+    LTEXT    "Select an operation or drag & drop files:", IDC_STATIC, 14, 35, 292, 10
     
-    PUSHBUTTON   "Compress File", IDC_BTN_COMPRESS, 40, 55, 240, 30
-    PUSHBUTTON    "Decompress File", IDC_BTN_DECOMPRESS, 40, 95, 240, 30
+    PUSHBUTTON   "Compress File(s)", IDC_BTN_COMPRESS, 40, 55, 240, 30
+    PUSHBUTTON    "Decompress File(s)", IDC_BTN_DECOMPRESS, 40, 95, 240, 30
     
- LTEXT           "Status:", IDC_STATIC, 14, 140, 40, 10
-EDITTEXT  IDC_EDIT_STATUS, 14, 152, 292, 14, ES_READONLY | ES_AUTOHSCROLL
+    LTEXT           "Progress:", IDC_STATIC, 14, 140, 40, 10
+    CONTROL      "", IDC_PROGRESS_BAR, "msctls_progress32", WS_BORDER, 14, 152, 292, 14
     
-    PUSHBUTTON      "Exit", IDC_BTN_EXIT, 130, 175, 60, 20
+    LTEXT           "Status:", IDC_STATIC, 14, 172, 40, 10
+    EDITTEXT  IDC_EDIT_STATUS, 14, 184, 292, 14, ES_READONLY | ES_AUTOHSCROLL
+    
+    PUSHBUTTON      "Exit", IDC_BTN_EXIT, 130, 202, 60, 14
 END

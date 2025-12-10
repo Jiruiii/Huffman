@@ -1,0 +1,3 @@
+Test File 5 - Short
+Just a tiny file.
+ABC
