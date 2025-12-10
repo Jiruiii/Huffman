@@ -1,9 +1,0 @@
-這是測試檔案 #2
-包含中文字元，用來測試 UTF-8 編碼的壓縮效果。
-霍夫曼編碼（Huffman Coding）是一種用於無損資料壓縮的熵編碼演算法。
-
-AAAAAAAAAA
-BBBBBBBBBB
-CCCCCCCCCC
-
-重複的字元應該能獲得更好的壓縮率。

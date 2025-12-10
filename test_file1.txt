@@ -1,5 +1,0 @@
-Hello World! This is test file number 1.
-This file contains some basic ASCII text.
-We can test the Huffman compression with this simple content.
-The quick brown fox jumps over the lazy dog.
-1234567890
