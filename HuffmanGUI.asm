@@ -311,22 +311,22 @@ dropped_files_done:
         ; §PÂ_¬OÀ£ÁYÁÙ¬O¸ÑÀ£ÁY¡]®Ú¾Ú²Ä¤@­ÓÀÉ®×ªº°ÆÀÉ¦W¡^
         lea esi, szBatchFiles
         
-        ; ÀË¬d°ÆÀÉ¦W
-        push esi
-        xor ecx, ecx
+        ; ÀË¬d°ÆÀÉ¦W - §ä¨ì³Ì«á¤@­Ó '.' ªº¦ì¸m
+        xor ecx, ecx        ; ¥Î¨ÓÀx¦s³Ì«á¤@­Ó '.' ªº¦ì¸m
+        mov edi, esi        ; «O¦s°_©l¦ì¸m
 find_ext_batch:
         mov al, [esi]
-        .IF al == 0
-            pop esi
-            jmp check_extension_batch
-        .ENDIF
-        .IF al == '.'
-            mov ecx, esi
-        .ENDIF
+        cmp al, 0
+        je check_extension_batch
+        cmp al, '.'
+        jne not_dot_batch
+        mov ecx, esi        ; °O¿ý³o­Ó '.' ªº¦ì¸m
+not_dot_batch:
         inc esi
         jmp find_ext_batch
         
 check_extension_batch:
+        ; ecx ²{¦b«ü¦V³Ì«á¤@­Ó '.'¡A©ÎªÌ¬° 0¡]¨S¦³°ÆÀÉ¦W¡^
         .IF ecx != 0
             inc ecx
             mov al, [ecx]
@@ -443,7 +443,7 @@ single_file_done:
             .IF eax == 0
                 ret
             .ENDIF
-            
+                        
             INVOKE UpdateStatus, ADDR szCompressing
             call ResetProgress
             
@@ -730,7 +730,7 @@ ValidateInputFile PROC USES ebx, pszFilePath:PTR BYTE
     .IF eax == INVALID_HANDLE_VALUE
         INVOKE MessageBoxA, hMainDialog, ADDR szFileError, ADDR szError, MB_OK OR MB_ICONERROR
         xor eax, eax
-    ret
+        ret
     .ENDIF
     mov hFile, eax
     
@@ -748,7 +748,7 @@ ValidateInputFile PROC USES ebx, pszFilePath:PTR BYTE
     .IF fileSize == 0
         INVOKE CloseHandle, hFile
         INVOKE MessageBoxA, hMainDialog, ADDR szEmptyFile, ADDR szError, MB_OK OR MB_ICONWARNING
-    xor eax, eax
+        xor eax, eax
         ret
     .ENDIF
     
@@ -766,32 +766,32 @@ ValidateInputFile PROC USES ebx, pszFilePath:PTR BYTE
 ValidateInputFile ENDP
 
 ;-----------------------------------------------
-; é¡¯ç¤ºå£“ç¸®?‡è???
+; é¡¯ç¤ºå£“ç¸®?‡è????
 ;-----------------------------------------------
-DisplayCompressionStats PROC USES eax ebx ecx edx
+DisplayCompressionStats PROC USES ebx ecx edx
     LOCAL compressionRatio:DWORD
     
-    ; ï¿½pï¿½ï¿½ï¿½ï¿½ï¿½Yï¿½v = (1 - compressed/original) * 100
+    ; ­pºâÀ£ÁY¤ñ = (1 - compressed/original) * 100
     mov eax, outputFileSize
     mov ebx, 100
     mul ebx
     mov ebx, inputFileSize
     .IF ebx != 0
-  div ebx
+        div ebx
         mov compressionRatio, eax
-   mov eax, 100
+        mov eax, 100
         sub eax, compressionRatio
-  mov compressionRatio, eax
+        mov compressionRatio, eax
     .ELSE
         mov compressionRatio, 0
     .ENDIF
     
-    ; ï¿½æ¦¡ï¿½Æ°Tï¿½ï¿½
+    ; Åã¥Üª¬ºA°T®§
     INVOKE wsprintfA, ADDR szStatusBuffer, ADDR szStatsFormat, 
-       inputFileSize, outputFileSize, compressionRatio
+           inputFileSize, outputFileSize, compressionRatio
     INVOKE UpdateStatus, ADDR szStatusBuffer
     
-    ; ï¿½]ï¿½ï¿½Ü¦bï¿½Tï¿½ï¿½ï¿½Ø¤ï¿½
+    ; Åã¥Ü°T®§®Ø
     INVOKE wsprintfA, ADDR szMessageBuffer, ADDR szStatsFormat, 
            inputFileSize, outputFileSize, compressionRatio
     INVOKE MessageBoxA, hMainDialog, ADDR szMessageBuffer, ADDR szAppTitle, MB_OK OR MB_ICONINFORMATION
@@ -800,7 +800,7 @@ DisplayCompressionStats PROC USES eax ebx ecx edx
 DisplayCompressionStats ENDP
 
 ;-----------------------------------------------
-; é¡¯ç¤ºè§??ç¸®è???
+; é¡¯ç¤ºè§??ç¸®è????
 ;-----------------------------------------------
 DisplayDecompressionStats PROC
     INVOKE wsprintfA, ADDR szStatusBuffer, ADDR szDecompStatsFormat, 
@@ -844,7 +844,8 @@ SelectSaveFileDecompress PROC
 SelectSaveFileDecompress ENDP
 
 ;-----------------------------------------------
-; ?¢ç?è¼¸å‡ºæª”å?
+; ²£¥Í¿é¥XÀÉ¦W
+; ±N test_input.txt Âà´«¬° test_input.huff
 ;-----------------------------------------------
 GenerateOutputFilename PROC USES esi edi, pszInput:PTR BYTE, pszOutput:PTR BYTE, pszExtension:PTR BYTE
     LOCAL lastDotPos:DWORD
@@ -853,28 +854,28 @@ GenerateOutputFilename PROC USES esi edi, pszInput:PTR BYTE, pszOutput:PTR BYTE,
     mov edi, pszOutput
     mov lastDotPos, 0
     
-    ; ï¿½Æ»sï¿½É¦Wï¿½Ã§ï¿½ï¿½Ì«ï¿½@ï¿½ï¿½ï¿½Iï¿½ï¿½ï¿½ï¿½m
-    xor ecx, ecx
+    ; ½Æ»sÀÉ¦W¨Ã°O¿ý³Ì«á¤@­Ó '.' ªº¦ì¸m¡]¬Û¹ï©ó¿é¥X½w½Ä°Ï¡^
+    xor ecx, ecx        ; ecx = ¦r¤¸­p¼Æ¾¹
 copy_filename:
     lodsb
     cmp al, 0
     je copy_done
     cmp al, '.'    
     jne not_dot
-    mov lastDotPos, ecx
+    mov lastDotPos, ecx ; °O¿ý '.' ¦b¿é¥X½w½Ä°Ï¤¤ªº¦ì¸m
 not_dot:
     stosb
     inc ecx
     jmp copy_filename
     
 copy_done:
-    ; ï¿½pï¿½Gï¿½ï¿½ï¿½ï¿½Iï¿½Aï¿½^ï¿½ì¨ºï¿½Ó¦ï¿½m
+    ; ¦pªG¦³§ä¨ì '.'¡A±N edi ²¾¨ì¨º­Ó¦ì¸m¥HÂÐ»\°ÆÀÉ¦W
     .IF lastDotPos != 0
         mov edi, pszOutput
         add edi, lastDotPos
     .ENDIF
  
-    ; ï¿½ï¿½ï¿½[ï¿½sï¿½ï¿½ï¿½É¦W
+    ; ªþ¥[·s°ÆÀÉ¦W
     mov esi, pszExtension
 append_ext:
     lodsb
@@ -938,7 +939,7 @@ ClearBuffer PROC, pBuffer:PTR BYTE, bufSize:DWORD
 ClearBuffer ENDP
 
 ;-----------------------------------------------
-; ?´æ–°?€?‹è???
+; ?´æ–°?€?‹è????
 ;-----------------------------------------------
 UpdateStatus PROC USES eax, pszMessage:PTR BYTE
     INVOKE GetDlgItem, hMainDialog, IDC_EDIT_STATUS
@@ -1045,9 +1046,9 @@ WriteFileBuffer PROC, hFile:DWORD, pBuffer:PTR BYTE, nBytes:DWORD
     
     INVOKE WriteFile, hFile, pBuffer, nBytes, ADDR bytesWritten, NULL
     .IF eax == 0
- mov eax, 0
-     ret
-.ENDIF
+        mov eax, 0
+        ret
+    .ENDIF
     
     mov eax, bytesWritten
     ret
@@ -1521,6 +1522,461 @@ batch_decompress_done:
 ProcessBatchDecompress ENDP
 
 END main
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
