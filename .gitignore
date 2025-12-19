@@ -10,6 +10,11 @@
 *.vcxproj.filters
 *.vcxproj.user
 
+# Visual Studio Resource Files (auto-generated)
+*.aps
+RCa*
+*.rc.bak
+
 # Build output
 *.obj
 *.exe
@@ -52,7 +57,8 @@ x86/
 # Irvine32.inc
 # Irvine32.lib
 
-# Other
+# Backup and temporary files
+*_original.*
 *.bak
 *.tmp
 Thumbs.db

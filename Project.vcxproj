@@ -25,6 +25,7 @@
   <ItemGroup>
     <None Include=".gitignore" />
     <None Include="ACCURATE_FIX_GUIDE.md" />
+    <None Include="CLEANUP_SUMMARY.md" />
     <None Include="README.md" />
     <None Include="test_decompress_simple.bat" />
   </ItemGroup>
