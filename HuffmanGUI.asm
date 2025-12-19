@@ -15,6 +15,7 @@ GetOpenFileNameA PROTO, lpofn:PTR OPENFILENAME
 GetSaveFileNameA PROTO, lpofn:PTR OPENFILENAME
 DragQueryFileA PROTO, hDrop:DWORD, iFile:DWORD, lpszFile:PTR BYTE, cch:DWORD
 DragFinish PROTO, hDrop:DWORD
+DragAcceptFiles PROTO, hWnd:DWORD, fAccept:DWORD
 SendMessageA PROTO, hWnd:DWORD, Msg:DWORD, wParam:DWORD, lParam:DWORD
 
 ; æª”æ? I/O API
@@ -80,6 +81,8 @@ FILE_END    EQU 2
 OFN_FILEMUSTEXIST   EQU 1000h
 OFN_PATHMUSTEXIST   EQU 800h
 OFN_OVERWRITEPROMPT EQU 2h
+OFN_EXPLORER        EQU 80000h
+OFN_ALLOWMULTISELECT EQU 200h
 
 MB_OK          EQU 0
 MB_ICONINFORMATION  EQU 40h
@@ -209,8 +212,8 @@ main PROC
     INVOKE GetModuleHandleA, NULL
     mov hInstance, eax
     
-    ; ?Ÿå?ä¸»å?è©±æ?
-    INVOKE DialogBoxParamA, hInstance, IDD_MAIN_DIALOG, NULL, ADDR DlgProc, 0
+    ; DialogBoxParam with numeric resource ID
+    INVOKE DialogBoxParamA, hInstance, 101, NULL, ADDR DlgProc, 0
     
     INVOKE ExitProcess, 0
 main ENDP
@@ -221,7 +224,10 @@ main ENDP
 DlgProc PROC, hDlg:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWORD
     .IF uMsg == WM_INITDIALOG
         mov eax, hDlg
-     mov hMainDialog, eax
+        mov hMainDialog, eax
+        
+        ; Enable drag & drop
+        INVOKE DragAcceptFiles, hDlg, TRUE
         
         ; ªì©l¤Æª¬ºA¦C
         INVOKE GetDlgItem, hDlg, IDC_EDIT_STATUS
@@ -230,8 +236,8 @@ DlgProc PROC, hDlg:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWORD
         ; ªì©l¤Æ¶i«×±ø
         INVOKE GetDlgItem, hDlg, IDC_PROGRESS_BAR
         mov hProgressBar, eax
-        INVOKE SendMessageA, hProgressBar, PBM_SETRANGE, 0, 100  ; 0-100%
-        INVOKE SendMessageA, hProgressBar, PBM_SETPOS, 0, 0      ; ªì©l¬° 0
+        INVOKE SendMessageA, hProgressBar, PBM_SETRANGE, 0, 100
+        INVOKE SendMessageA, hProgressBar, PBM_SETPOS, 0, 0
         
         mov eax, TRUE
         ret
@@ -239,12 +245,19 @@ DlgProc PROC, hDlg:DWORD, uMsg:DWORD, wParam:DWORD, lParam:DWORD
     .ELSEIF uMsg == WM_COMMAND
         mov eax, wParam
         and eax, 0FFFFh
-     .IF eax == IDC_BTN_COMPRESS
-       call CompressFile
-    .ELSEIF eax == IDC_BTN_DECOMPRESS
+        
+        .IF eax == IDC_BTN_COMPRESS
+            call CompressFile
+            mov eax, TRUE
+            ret
+        .ELSEIF eax == IDC_BTN_DECOMPRESS
             call DecompressFile
+            mov eax, TRUE
+            ret
         .ELSEIF eax == IDC_BTN_EXIT
-       INVOKE EndDialog, hDlg, 0
+            INVOKE EndDialog, hDlg, 0
+            mov eax, TRUE
+            ret
         .ENDIF
         
     .ELSEIF uMsg == WM_DROPFILES
@@ -597,25 +610,25 @@ SetupOpenFileStruct PROC USES ebx, pOfn:PTR OPENFILENAME, pFile:PTR BYTE, pFilte
     mov (OPENFILENAME PTR [ebx]).hInstance, eax
     mov eax, pFilter
     mov (OPENFILENAME PTR [ebx]).lpstrFilter, eax
- mov (OPENFILENAME PTR [ebx]).lpstrCustomFilter, NULL
+    mov (OPENFILENAME PTR [ebx]).lpstrCustomFilter, NULL
     mov (OPENFILENAME PTR [ebx]).nMaxCustFilter, 0
     mov (OPENFILENAME PTR [ebx]).nFilterIndex, 1
     mov eax, pFile
     mov (OPENFILENAME PTR [ebx]).lpstrFile, eax
-    mov (OPENFILENAME PTR [ebx]).nMaxFile, 65536  ; ¼W¥[½w½Ä°Ï¤j¤p¥H¤ä´©¦hÀÉ®×
+    mov (OPENFILENAME PTR [ebx]).nMaxFile, 65536
     mov (OPENFILENAME PTR [ebx]).lpstrFileTitle, NULL
     mov (OPENFILENAME PTR [ebx]).nMaxFileTitle, 0
     mov (OPENFILENAME PTR [ebx]).lpstrInitialDir, NULL
     mov eax, pTitle
-  mov (OPENFILENAME PTR [ebx]).lpstrTitle, eax
-    ; ¥[¤J OFN_ALLOWMULTISELECT ¥H¤ä´©¦hÀÉ®×¿ï¾Ü
-    mov (OPENFILENAME PTR [ebx]).Flags, OFN_FILEMUSTEXIST OR OFN_PATHMUSTEXIST OR 200h  ; 200h = OFN_ALLOWMULTISELECT
+    mov (OPENFILENAME PTR [ebx]).lpstrTitle, eax
+    ; Use modern Explorer-style dialog with multi-select support
+    mov (OPENFILENAME PTR [ebx]).Flags, OFN_FILEMUSTEXIST OR OFN_PATHMUSTEXIST OR OFN_EXPLORER OR OFN_ALLOWMULTISELECT
     mov (OPENFILENAME PTR [ebx]).nFileOffset, 0
     mov (OPENFILENAME PTR [ebx]).nFileExtension, 0
     mov (OPENFILENAME PTR [ebx]).lpstrDefExt, NULL
-  mov (OPENFILENAME PTR [ebx]).lCustData, 0
-  mov (OPENFILENAME PTR [ebx]).lpfnHook, NULL
- mov (OPENFILENAME PTR [ebx]).lpTemplateName, NULL
+    mov (OPENFILENAME PTR [ebx]).lCustData, 0
+    mov (OPENFILENAME PTR [ebx]).lpfnHook, NULL
+    mov (OPENFILENAME PTR [ebx]).lpTemplateName, NULL
     
     ret
 SetupOpenFileStruct ENDP
@@ -813,12 +826,13 @@ SetupSaveFileStruct PROC USES ebx, pOfn:PTR OPENFILENAME, pFile:PTR BYTE, pFilte
     mov (OPENFILENAME PTR [ebx]).lpstrInitialDir, NULL
     mov eax, OFFSET szSaveTitle
     mov (OPENFILENAME PTR [ebx]).lpstrTitle, eax
-    mov (OPENFILENAME PTR [ebx]).Flags, OFN_OVERWRITEPROMPT OR OFN_PATHMUSTEXIST
+    ; Use modern Explorer-style dialog for save
+    mov (OPENFILENAME PTR [ebx]).Flags, OFN_OVERWRITEPROMPT OR OFN_PATHMUSTEXIST OR OFN_EXPLORER
     mov (OPENFILENAME PTR [ebx]).nFileOffset, 0
     mov (OPENFILENAME PTR [ebx]).nFileExtension, 0
     mov (OPENFILENAME PTR [ebx]).lpstrDefExt, NULL
     mov (OPENFILENAME PTR [ebx]).lCustData, 0
-  mov (OPENFILENAME PTR [ebx]).lpfnHook, NULL
+    mov (OPENFILENAME PTR [ebx]).lpfnHook, NULL
     mov (OPENFILENAME PTR [ebx]).lpTemplateName, NULL
     
     ret
@@ -1095,7 +1109,7 @@ compare_loop:
       ret
     .ENDIF
     
- ; ï¿½pï¿½Gï¿½ï¿½Åªï¿½ï¿½ï¿½F
+ ; ï¿½pï¿½Gï¿½ï¿½Åªï¿½ï¿½ï¿½C
     .IF bytesRead1 == 0
      jmp compare_success
     .ENDIF
