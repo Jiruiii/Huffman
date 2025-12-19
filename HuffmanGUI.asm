@@ -128,6 +128,11 @@ szBatchFiles    BYTE 65536 DUP(0)  ; ¿x¶s¶h≠”¿…Æ◊∏ÙÆ|°]®C≠”≥Ã¶h 260 bytes°^
 batchFileCount  DWORD 0
 currentFileIndex DWORD 0
 
+; •Œ©Û RebuildFullPathsFromDialog ™∫§uß@ΩwΩƒ∞œ
+tempDirPath     BYTE 260 DUP(0)
+tempFilePath    BYTE 260 DUP(0)
+tempFileList    BYTE 2600 DUP(0)  ; 10≠”¿…Æ◊ * 260¶r∏`
+
 ; Ê™îÊ??éÊøæ??
 szFilterCompress    BYTE "Text Files (*.txt)",0,"*.txt",0
       BYTE "All Files (*.*)",0,"*.*",0,0
@@ -202,7 +207,7 @@ CopyFileData PROTO, pszSource:PTR BYTE, pszDest:PTR BYTE
 CompareFiles PROTO, pszFile1:PTR BYTE, pszFile2:PTR BYTE
 ProcessBatchCompress PROTO
 ProcessBatchDecompress PROTO
-
+RebuildFullPathsFromDialog PROTO
 .code
 
 ; ================================================
@@ -358,7 +363,7 @@ check_extension_batch:
 DlgProc ENDP
 
 ;-----------------------------------------------
-; Â£ìÁ∏ÆÊ™îÊ?ÊµÅÁ?ÔºàÂ?Âº∑Á?Ôº?
+; ÔÃÊ™?Êµ?Ôº?Âº∑Á?Ôº?
 ;-----------------------------------------------
 CompressFile PROC
 LOCAL ofn:OPENFILENAME
@@ -380,12 +385,15 @@ LOCAL ofn:OPENFILENAME
     INVOKE ClearBuffer, ADDR szOutputFile, 260
     
     .IF skipDialog == 0
+        ; •˝≤M™≈ szBatchFiles ΩwΩƒ∞œ°]ΩT´O¶høÔ•ø±`πBß@°^
+        INVOKE ClearBuffer, ADDR szBatchFiles, 65536
+        
         ; ≥]©w OPENFILENAME µ≤∫c°]§‰¥©¶h¿…Æ◊øÔæ‹°^
         INVOKE SetupOpenFileStruct, ADDR ofn, ADDR szBatchFiles, ADDR szFilterCompress, ADDR szCompressTitle
      
         ; ≈„•‹øÔæ‹¿…Æ◊πÔ∏‹Æÿ
         INVOKE GetOpenFileNameA, ADDR ofn
-      .IF eax == 0
+        .IF eax == 0
             ret
         .ENDIF
 
@@ -456,39 +464,25 @@ single_file_done:
             INVOKE ClearBuffer, ADDR szInputFile, 260
             ret
         .ELSE
-            ; ¶h¿…º“¶°°Gª›≠n≠´≤’ßπæ„∏ÙÆ|
-            ; TODO: πÍß@¶h¿…∏ÙÆ|≠´≤’°]∏˚Ω∆¬¯°Aº»Æ…®œ•ŒßÂ¶∏≥B≤z°^
-            ; ≥o∏Ã¬≤§∆≥B≤z°G≠p∫‚¿…Æ◊º∆∂q
-            mov batchFileCount, 0
-            lea esi, szBatchFiles
+            ; ¶h¿…º“¶°°G®œ•Œª≤ßU®Áº∆≠´≤’∏ÙÆ|
+            call RebuildFullPathsFromDialog
+            mov batchFileCount, eax
             
-            ; ∏ıπL•ÿø˝∏ÙÆ|
-skip_dir:
-            lodsb
-            cmp al, 0
-            jne skip_dir
+            ; ¿À¨d¨Oß_¶≥¿…Æ◊
+            .IF eax == 0
+                INVOKE UpdateStatus, ADDR szNoFileSelected
+                ret
+            .ENDIF
             
-            ; ≠p∫‚¿…Æ◊º∆∂q
-count_files:
-            mov al, [esi]
-            cmp al, 0
-            je count_done
-            
-            inc batchFileCount
-            
-            ; ∏ı®Ï§U§@≠”¿…¶W
-skip_filename:
-            lodsb
-            cmp al, 0
-            jne skip_filename
-            jmp count_files
-            
-count_done:
             ; ©I•sßÂ¶∏≥B≤z
             call ProcessBatchCompress
+            
+            ; ≤M™≈ΩwΩƒ∞œ∑«≥∆§U¶∏®œ•Œ
+            INVOKE ClearBuffer, ADDR szInputFile, 260
+            INVOKE ClearBuffer, ADDR szBatchFiles, 65536
             ret
         .ENDIF
-    .ENDIF
+    .ENDIF  ; <-- µ≤ßÙ skipDialog == 0 ™∫±¯•Û
 
     ; ≥Ê¿…º“¶°°]±q©Ï©Ò∂i§J°^
     INVOKE wsprintfA, ADDR szStatusBuffer, ADDR szReadyWithFile, ADDR szInputFile, inputFileSize
@@ -524,7 +518,7 @@ count_done:
 CompressFile ENDP
 
 ;-----------------------------------------------
-; Ëß??Á∏ÆÊ?Ê°à‰∏ªÁ®ãÂ?
+; Ëß??Á∏ÆÊ?Ê°à‰∏ªÁ®?
 ;-----------------------------------------------
 DecompressFile PROC
     LOCAL ofn:OPENFILENAME
@@ -539,53 +533,143 @@ DecompressFile PROC
         ; File already selected via drag & drop
         mov skipDialog, 1
     .ELSE
-        ; ≤M∞£¿…??∏Ù??Ωw????
+        ; Clear file path buffers
         INVOKE ClearBuffer, ADDR szInputFile, 260
+        INVOKE ClearBuffer, ADDR szBatchFiles, 65536
     .ENDIF
     
     INVOKE ClearBuffer, ADDR szOutputFile, 260
     
     .IF skipDialog == 0
-        ; ≥]?? OPENFILENAME µ≤??
-      INVOKE SetupOpenFileStruct, ADDR ofn, ADDR szInputFile, ADDR szFilterDecompress, ADDR szDecompressTitle
+        ; •˝≤M™≈ szBatchFiles ΩwΩƒ∞œ°]ΩT´O¶høÔ•ø±`πBß@°^
+        INVOKE ClearBuffer, ADDR szBatchFiles, 65536
+        
+        ; ≥]©w OPENFILENAME µ≤∫c
+        INVOKE SetupOpenFileStruct, ADDR ofn, ADDR szBatchFiles, ADDR szFilterDecompress, ADDR szDecompressTitle
      
-        ; ≈„•‹????¿…??πÔ∏‹??
+        ; ≈„•‹øÔæ‹¿…Æ◊πÔ∏‹Æÿ
         INVOKE GetOpenFileNameA, ADDR ofn
         .IF eax == 0
-      ret
+            ret
         .ENDIF
         
-        ; ≈Á??¿…??
-        INVOKE ValidateInputFile, ADDR szInputFile
-        .IF eax == 0
-          ret
-    .ENDIF
-      mov inputFileSize, eax
+        ; ∏—™R¶h¿…Æ◊øÔæ‹µ≤™G
+        ; ÆÊ¶°°Gdirectory\0file1\0file2\0\0
+        lea esi, szBatchFiles
+        
+        ; ¿À¨d¨O≥Ê¿…¡Ÿ¨O¶h¿…
+        ; ß‰®Ï≤ƒ§@≠” \0
+        mov edi, esi
+find_first_null_decomp:
+        mov al, [edi]
+        inc edi
+        cmp al, 0
+        jne find_first_null_decomp
+        
+        ; ¿À¨d§U§@≠”¶r§∏
+        mov al, [edi]
+        .IF al == 0
+            ; ≥Ê¿…º“¶°°GszBatchFiles •]ßtßπæ„∏ÙÆ|
+            mov batchFileCount, 1
+            
+            ; Ω∆ªs®Ï szInputFile
+            INVOKE ClearBuffer, ADDR szInputFile, 260
+            lea esi, szBatchFiles
+            lea edi, szInputFile
+            mov ecx, 260
+single_file_copy_decomp:
+            lodsb
+            stosb
+            cmp al, 0
+            je single_file_done_decomp
+            loop single_file_copy_decomp
+single_file_done_decomp:
+            ; ≈Á√“¿…Æ◊
+            INVOKE ValidateInputFile, ADDR szInputFile
+            .IF eax == 0
+                ret
+            .ENDIF
+            mov inputFileSize, eax
+            
+            ; ≥Ê¿…º“¶°°G®œ•Œ≠Ï¶≥¨yµ{
+            INVOKE wsprintfA, ADDR szStatusBuffer, ADDR szReadyWithFile, ADDR szInputFile, inputFileSize
+            INVOKE UpdateStatus, ADDR szStatusBuffer
+            
+            call SelectSaveFileDecompress
+            .IF eax == 0
+                ret
+            .ENDIF
+            
+            INVOKE UpdateStatus, ADDR szDecompressing
+            call ResetProgress
+            
+            INVOKE DecompressHuffmanFile, ADDR szInputFile, ADDR szOutputFile
+            
+            INVOKE UpdateProgress, 100, 100
+            
+            INVOKE GetCompressedFileSize, ADDR szOutputFile
+            mov outputFileSize, eax
+            
+            .IF outputFileSize > 0
+                call DisplayDecompressionStats
+            .ENDIF
+            
+            INVOKE MessageBoxA, hMainDialog, ADDR szSuccess, ADDR szAppTitle, MB_OK OR MB_ICONINFORMATION
+            INVOKE UpdateStatus, ADDR szStatus
+            call ResetProgress
+            INVOKE ClearBuffer, ADDR szInputFile, 260
+            ret
+        .ELSE
+            ; ¶h¿…º“¶°°G®œ•Œª≤ßU®Áº∆≠´≤’∏ÙÆ|
+            call RebuildFullPathsFromDialog
+            mov batchFileCount, eax
+            
+            ; ¿À¨d¨Oß_¶≥¿…Æ◊
+            .IF eax == 0
+                INVOKE UpdateStatus, ADDR szNoFileSelected
+                ret
+            .ENDIF
+            
+            ; ©I•sßÂ¶∏≥B≤z
+            call ProcessBatchDecompress
+            
+            ; ≤M™≈ΩwΩƒ∞œ∑«≥∆§U¶∏®œ•Œ
+            INVOKE ClearBuffer, ADDR szInputFile, 260
+            INVOKE ClearBuffer, ADDR szBatchFiles, 65536
+            ret
+        .ENDIF
     .ENDIF
 
-    ; È°ØÁ§∫Ê™îÊ?Ë≥áË?
+    ; ≥Ê¿…º“¶°°]±q©Ï©Ò∂i§J°^
+    INVOKE ValidateInputFile, ADDR szInputFile
+    .IF eax == 0
+        ret
+    .ENDIF
+    mov inputFileSize, eax
+    
+    ; ≈„•‹¿…Æ◊∏Í∞T
     INVOKE wsprintfA, ADDR szStatusBuffer, ADDR szReadyWithFile, ADDR szInputFile, inputFileSize
     INVOKE UpdateStatus, ADDR szStatusBuffer
     
-    ; È°ØÁ§∫Ëº∏Âá∫Ê™îÊ?
+    ; øÔæ‹øÈ•X¿…Æ◊
     call SelectSaveFileDecompress
     .IF eax == 0
         ret
     .ENDIF
 
-    ; ?¥Êñ∞?Ä??    
+    ; ßÛ∑s™¨∫A
     INVOKE UpdateStatus, ADDR szDecompressing
     
-    ; ?ºÂè´‰∫„Wì°?õÁ?Ëß??Á∏ÆÂáΩÂº?
+    ; ©I•s∏—¿£¡Y®Áº∆
     INVOKE DecompressHuffmanFile, ADDR szInputFile, ADDR szOutputFile
     .IF eax != 0
- ; Ëß??Á∏ÆÊ??üÔ?È°ØÁ§∫Áµ±Ë?
-     INVOKE GetCompressedFileSize, ADDR szOutputFile
+        ; ∏—¿£¡Y¶®•\°A≈„•‹≤Œ≠p
+        INVOKE GetCompressedFileSize, ADDR szOutputFile
         mov outputFileSize, eax
-      INVOKE DisplayDecompressionStats
+        INVOKE DisplayDecompressionStats
     .ENDIF
 
-    ; ≈„•‹ßπ??∞TÆß??
+    ; ≈„•‹ßπ¶®∞TÆß
     INVOKE MessageBoxA, hMainDialog, ADDR szSuccess, ADDR szAppTitle, MB_OK OR MB_ICONINFORMATION
     
     INVOKE UpdateStatus, ADDR szStatus
@@ -597,7 +681,7 @@ DecompressFile PROC
 DecompressFile ENDP
 
 ;-----------------------------------------------
-; Ë®≠Â? OPENFILENAME ÁµêÊ??ßÂÆπ
+; Ë®≠Â? OPENFILENAME Áµ??ßÂÆπ
 ;-----------------------------------------------
 SetupOpenFileStruct PROC USES ebx, pOfn:PTR OPENFILENAME, pFile:PTR BYTE, pFilter:PTR BYTE, pTitle:PTR BYTE
     mov ebx, pOfn
@@ -1005,7 +1089,7 @@ SeekFile ENDP
 CopyFileData PROC USES ebx esi edi, pszSource:PTR BYTE, pszDest:PTR BYTE
     LOCAL hFileIn:DWORD
     LOCAL hFileOut:DWORD
-    LOCAL buffer[4096]:BYTE
+    LOCAL buffer1[4096]:BYTE
     LOCAL bytesRead:DWORD
     
     ; ÔøΩ}ÔøΩ“®”∑ÔøΩÔøΩ…ÆÔøΩ
@@ -1027,13 +1111,13 @@ INVOKE OpenFileForWrite, pszDest
     
     ; ÔøΩ∆ªsÔøΩÔøΩÔø?
 copy_loop:
-    INVOKE ReadFileBuffer, hFileIn, ADDR buffer, 4096
+    INVOKE ReadFileBuffer, hFileIn, ADDR buffer1, 4096
     mov bytesRead, eax
     .IF eax == 0
         jmp copy_done
     .ENDIF
     
-    INVOKE WriteFileBuffer, hFileOut, ADDR buffer, bytesRead
+    INVOKE WriteFileBuffer, hFileOut, ADDR buffer1, bytesRead
     .IF eax != bytesRead
         ; ÔøΩgÔøΩJÔøΩÔøΩÔøΩ~
         INVOKE CloseFileHandle, hFileIn
@@ -1171,6 +1255,130 @@ ResetProgress PROC
     INVOKE SendMessageA, hProgressBar, PBM_SETPOS, 0, 0
     ret
 ResetProgress ENDP
+;-----------------------------------------------
+; ≠´≤’πÔ∏‹Æÿ¶h¿…Æ◊ÆÊ¶°¨∞ßπæ„∏ÙÆ|º∆≤’
+; øÈ§J: szBatchFiles •]ßt "dir\0file1\0file2\0\0"
+; øÈ•X: szBatchFiles •]ßtßπæ„∏ÙÆ|°]®C≠”260¶r∏`°^
+; ™¶^: EAX = ¿…Æ◊º∆∂q
+;-----------------------------------------------
+RebuildFullPathsFromDialog PROC USES ebx esi edi
+    ; ®œ•Œ .data ¨q™∫¿R∫AΩwΩƒ∞œ°A¡◊ßK∞Ô≈|∞›√D
+    
+    ; Step 1: ≤M™≈§uß@ΩwΩƒ∞œ
+    INVOKE ClearBuffer, ADDR tempDirPath, 260
+    INVOKE ClearBuffer, ADDR tempFilePath, 260
+    INVOKE ClearBuffer, ADDR tempFileList, 2600
+    
+    ; Step 2: ¥£®˙•ÿø˝∏ÙÆ|
+    lea esi, szBatchFiles
+    lea edi, tempDirPath
+extract_dir:
+    lodsb
+    stosb
+    cmp al, 0
+    jne extract_dir
+    
+    ; esi ≤{¶b´¸¶V≤ƒ§@≠”¿…¶W™∫∂}©l¶Ï∏m
+    ; edi ´¸¶V tempDirPath §§ null ´·≠±™∫¶Ï∏m
+    
+    ; ΩT´O•ÿø˝•H§œ±◊Ωuµ≤ß¿
+    ; ≠∫•˝¶^®Ï null ™∫¶Ï∏m
+    dec edi
+    ; ¶A¶^®Ï≥Ã´·§@≠”πÍª⁄¶r§∏
+    dec edi
+    cmp byte ptr [edi], '\'
+    je dir_already_has_slash
+    ; ®S¶≥§œ±◊Ωu°A•[§W§œ±◊Ωu
+    inc edi
+    mov byte ptr [edi], '\'
+dir_already_has_slash:
+    ; ≤æ®Ï§œ±◊Ωu´·≠±°A•[§W null
+    inc edi
+    mov byte ptr [edi], 0
+    
+    ; Step 3: ¶¨∂∞©“¶≥¿…¶W®Ï tempFileList
+    xor ebx, ebx  ; fileCount = 0
+    
+collect_files:
+    mov al, [esi]
+    cmp al, 0
+    je collect_done
+    
+    ; ¿À¨d¨Oß_∂WπL10≠”¿…Æ◊
+    cmp ebx, 10
+    jge collect_done
+    
+    ; ≤M™≈ tempFilePath
+    push esi
+    push ebx
+    INVOKE ClearBuffer, ADDR tempFilePath, 260
+    pop ebx
+    pop esi
+    
+    ; ´ÿ∫cßπæ„∏ÙÆ|®Ï tempFilePath
+    push esi
+    push ebx
+    
+    ; Ω∆ªs•ÿø˝
+    lea esi, tempDirPath
+    lea edi, tempFilePath
+copy_dir_temp:
+    lodsb
+    cmp al, 0
+    je copy_dir_temp_done
+    stosb
+    jmp copy_dir_temp
+copy_dir_temp_done:
+    ; edi ≤{¶b´¸¶V tempFilePath §§•ÿø˝µ≤ßÙ´·™∫¶Ï∏m°]∑«≥∆±µ¿…¶W°^
+    
+    pop ebx
+    pop esi
+    
+    ; Ω∆ªs¿…¶W
+copy_filename_temp:
+    lodsb
+    stosb
+    cmp al, 0
+    jne copy_filename_temp
+    
+    ; Ω∆ªs tempFilePath ®ÏtempFileList[fileCount * 260]
+    push esi
+    lea esi, tempFilePath
+    
+    ; ≠p∫‚ tempFileList[fileCount * 260] ™∫¶aß}
+    mov eax, ebx
+    mov edx, 260
+    imul eax, edx
+    lea edi, tempFileList
+    add edi, eax
+    
+    mov ecx, 260
+copy_to_list:
+    lodsb
+    stosb
+    loop copy_to_list
+    
+    pop esi
+    inc ebx
+    jmp collect_files
+    
+collect_done:
+    ; Step 4: ≤M™≈ szBatchFiles ®√Ω∆ªs¶^•h
+    INVOKE ClearBuffer, ADDR szBatchFiles, 65536
+    
+    lea esi, tempFileList
+    lea edi, szBatchFiles
+    mov ecx, ebx  ; fileCount
+    
+    .IF ecx > 0
+        mov edx, 260
+        imul ecx, edx
+        rep movsb
+    .ENDIF
+    
+    mov eax, ebx  ; ™¶^¿…Æ◊º∆∂q
+    ret
+RebuildFullPathsFromDialog ENDP
 
 ;-----------------------------------------------
 ; ßÂ¶∏¿£¡Y≥B≤z
@@ -1313,4 +1521,17 @@ batch_decompress_done:
 ProcessBatchDecompress ENDP
 
 END main
+
+
+
+
+
+
+
+
+
+
+
+
+
 
