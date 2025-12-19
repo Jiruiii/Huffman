@@ -6,12 +6,12 @@
 option casemap :none
 INCLUDE Irvine32.inc
 
-; 宣告函式原型
+; File operations
 OpenFileForRead PROTO, pszFilePath:PTR BYTE
 OpenFileForWrite PROTO, pszFilePath:PTR BYTE
-; ReadFileByte 改名為 ReadDecodedByte 以避免與 pro2.asm 衝突
+; ReadFileByte corresponds to ReadDecodedByte defined in pro2.asm
 ReadDecodedByte PROTO, hFile:DWORD
-; WriteFileByte 改名為 WriteDecodedByte 以避免與 pro2.asm 衝突
+; WriteFileByte corresponds to WriteDecodedByte defined in pro2.asm
 WriteDecodedByte PROTO, hFile:DWORD, byteVal:BYTE
 CloseFileHandle PROTO, hFile:DWORD
 
@@ -32,18 +32,6 @@ NextNodePtrDec DWORD OFFSET NodeBufferDec
 NodeBufferEndDec DWORD OFFSET NodeBufferDec + NODE_BUFFER_SIZE_DEC
 OutWrittenCount DWORD 0
 
-; Code tables (debug)
-DecCodeBits DWORD 256 DUP(0)
-DecCodeLen  BYTE 256 DUP(0)
-
-msg_dec_start BYTE "=== Decompression Start ===",0dh,0ah,0
-msg_tree_bytes BYTE "TreeBytes: ",0
-msg_original_size BYTE "OriginalSize: ",0
-msg_rebuild_start BYTE "Rebuilding tree...",0dh,0ah,0
-msg_rebuild_done BYTE "Tree rebuilt successfully",0dh,0ah,0
-msg_decode_start BYTE "Starting decode loop...",0dh,0ah,0
-msg_bytes_written BYTE "Bytes written: ",0
-msg_codes_header BYTE "--- Rebuilt Code Lengths (sym:len) ---",0dh,0ah,0
 msg_magic_error BYTE "Invalid file format! Not a HUFF compressed file.",0dh,0ah,0
 .code
 
@@ -139,111 +127,6 @@ done_rebuild:
     pop ebp
     ret
 RebuildNodeFromBuffer ENDP
-
-; BuildCodesRec (debug)
-BuildCodesRecDec PROC
-    push ebp
-    mov ebp, esp
-    push ebx
-    push esi
-    push edi
-    mov esi, [ebp+8]    ; nodePtr
-    mov ebx, [ebp+12]   ; curBits
-    mov edi, [ebp+16]   ; curLen
-    cmp esi, 0
-    je bcr_done
-    mov eax, (HuffNode PTR [esi]).left
-    mov edx, (HuffNode PTR [esi]).right
-    cmp eax, 0
-    jne bcr_notleaf
-    cmp edx, 0
-    jne bcr_notleaf
-    mov al, (HuffNode PTR [esi]).char
-    movzx ecx, al
-    lea esi, DecCodeBits
-    mov edx, ecx
-    shl edx, 2
-    add esi, edx
-    mov [esi], ebx
-    lea esi, DecCodeLen
-    add esi, ecx
-    mov eax, edi
-    mov [esi], al
-    jmp bcr_done
-bcr_notleaf:
-    ; left
-    mov eax, (HuffNode PTR [esi]).left
-    cmp eax, 0
-    je skip_left
-    mov ecx, edi
-    inc ecx
-    push ecx
-    push ebx
-    push eax
-    call BuildCodesRecDec
-skip_left:
-    ; right
-    mov eax, (HuffNode PTR [esi]).right
-    cmp eax, 0
-    je skip_right
-    mov ecx, edi
-    mov eax, 1
-    cmp cl, 32
-    jge skip_right
-    shl eax, cl
-    mov edx, ebx
-    or edx, eax
-    mov ecx, edi
-    inc ecx
-    push ecx
-    push edx
-    mov eax, (HuffNode PTR [esi]).right
-    push eax
-    call BuildCodesRecDec
-skip_right:
-    ; fallthrough
-bcr_done:
-    pop edi
-    pop esi
-    pop ebx
-    mov esp, ebp
-    pop ebp
-    ret 12
-BuildCodesRecDec ENDP
-
-BuildCodesDec PROC
-    push ebp
-    mov ebp, esp
-    push ebx
-    push esi
-    push edi
-    mov esi, [ebp+8] ; root
-    ; clear tables
-    mov ecx, 256
-    lea edi, DecCodeBits
-    xor eax, eax
-clr_bits:
-    mov [edi], eax
-    add edi, 4
-    loop clr_bits
-    mov ecx, 256
-    lea edi, DecCodeLen
-    mov al, 0
-clr_len:
-    mov [edi], al
-    inc edi
-    loop clr_len
-    push 0
-    push 0
-    push esi
-    call BuildCodesRecDec
-    pop edi
-    pop esi
-    pop ebx
-    mov esp, ebp
-    pop ebp
-    ret 4
-BuildCodesDec ENDP
 
 DecompressHuffmanFile PROC USES esi edi ebx,
     pszInputFile:PTR BYTE,
@@ -364,57 +247,14 @@ rt_done:
     or ebx, eax
     mov OriginalSize, ebx
     
-    ; messages
-    mov edx, OFFSET msg_dec_start
-    call WriteString
-    mov edx, OFFSET msg_tree_bytes
-    call WriteString
-    mov eax, TreeBytes
-    call WriteDec
-    call Crlf
-    mov edx, OFFSET msg_original_size
-    call WriteString
-    mov eax, OriginalSize
-    call WriteDec
-    call Crlf
-    mov edx, OFFSET msg_rebuild_start
-    call WriteString
     mov TreeBufIndex, 0
     mov NextNodePtrDec, OFFSET NodeBufferDec
     call RebuildNodeFromBuffer
     cmp eax, 0
     je file_error
-    mov edx, OFFSET msg_rebuild_done
-    call WriteString
     mov rootNode, eax
-    ; build codes for debug
-    push rootNode
-    call BuildCodesDec
-    mov edx, OFFSET msg_codes_header
-    call WriteString
-    mov ecx, 256
-    xor ebx, ebx
-print_codes_loop:
-    mov al, DecCodeLen[ebx]
-    cmp al, 0
-    je pc_next
-    mov eax, ebx
-    call WriteDec
-    mov al, ':'
-    call WriteChar
-    movzx eax, DecCodeLen[ebx]
-    call WriteDec
-    call Crlf
-pc_next:
-    inc ebx
-    loop print_codes_loop
     mov esi, rootNode
     mov OutWrittenCount, 0
-    mov edx, OFFSET msg_decode_start
-    call WriteString
-    mov eax, rootNode
-    call WriteHex
-    call Crlf
     mov bitCount, 0
 
 ; LSB-first decode (start from bit 0)
@@ -427,7 +267,7 @@ decode_loop_start:
     cmp eax, 0
     jne have_bits
     
-    ; 讀取壓縮資料改用 ReadDecodedByte
+    ; Read next byte using ReadDecodedByte
     INVOKE ReadDecodedByte, hIn
     cmp eax, -1
     je decode_end
@@ -461,7 +301,7 @@ after_move:
     or eax, [esi + HuffNode.right]
     jnz not_leaf
     mov al, BYTE PTR [esi + HuffNode.char]
-    ; 寫入改用 WriteDecodedByte
+    ; Write the byte using WriteDecodedByte
     INVOKE WriteDecodedByte, hOut, al
     mov esi, rootNode
     mov eax, OutWrittenCount
@@ -471,11 +311,6 @@ after_move:
 not_leaf:
     jmp decode_loop_start
 decode_end:
-    mov edx, OFFSET msg_bytes_written
-    call WriteString
-    mov eax, OutWrittenCount
-    call WriteDec
-    call Crlf
     INVOKE CloseFileHandle, hIn
     INVOKE CloseFileHandle, hOut
     mov eax, 1
@@ -497,34 +332,34 @@ file_error:
 DecompressHuffmanFile ENDP
 
 ; --------------------------------------------------------------------
-; 專屬於 Decoder 的讀取函式 (修復讀取到 0 變空格的問題)
+; Decoder read function (returns 0 on failure)
 ; --------------------------------------------------------------------
 ReadDecodedByte PROC USES ecx edx, hFile:DWORD
     LOCAL tempRead:DWORD
     LOCAL buf:BYTE
 
-    ; 1. 呼叫 Windows API 讀取 1 byte
+    ; 1. Use Windows API to read 1 byte
     lea edx, buf
     lea ecx, tempRead
     INVOKE ReadFile, hFile, edx, 1, ecx, 0
 
-    ; 2. 檢查是否成功
-    cmp eax, 0          ; ReadFile 回傳 0 表示失敗
+    ; 2. Check if successful
+    cmp eax, 0          ; ReadFile returns 0 on error
     je read_fail
-    cmp tempRead, 0     ; 讀取位元組數為 0 表示 EOF
+    cmp tempRead, 0     ; Read 0 bytes means EOF
     je read_fail
 
-    ; 3. 成功讀取，將 byte 放入 AL，並清空 EAX 高位
-    movzx eax, buf      
+    ; 3. If successful, put byte in AL, return in EAX
+    movzx eax, buf
     ret
 
 read_fail:
-    mov eax, -1         ; 回傳 -1 表示 EOF 或錯誤
+    mov eax, -1         ; Return -1 to indicate EOF or error
     ret
 ReadDecodedByte ENDP
 
 ; --------------------------------------------------------------------
-; 專屬於 Decoder 的寫入函式 (修復寫入失敗的問題)
+; Decoder write function (returns success)
 ; --------------------------------------------------------------------
 WriteDecodedByte PROC USES eax edx ecx, hFile:DWORD, byteVal:BYTE
     LOCAL tempWritten:DWORD
