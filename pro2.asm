@@ -283,12 +283,8 @@ bcr_notleaf:
     mov eax, (HuffNode PTR [esi]).left
     cmp eax, 0
     je bcr_skip_left
-    
-    ; �p�� curLen+1
     mov ecx, edi
     inc ecx
-    
-    ; �����T���� push �Ѽơ]stdcall�G�q�k�쥪�^
     push ecx         ; curLen+1
     push ebx       ; curBits
     push eax       ; nodePtr
@@ -303,17 +299,13 @@ bcr_skip_left:
     ; compute newBits = ebx | (1<<edi)
 mov ecx, edi
     mov eax, 1
-    cmp cl, 32  ; �����W�L 32 bits
+    cmp cl, 32  
     jge bcr_skip_right
     shl eax, cl
     mov edx, ebx
     or edx, eax
-    
-    ; �p�� curLen+1
     mov ecx, edi
     inc ecx
- 
-    ; �����T���� push �Ѽ�
     push ecx         ; curLen+1
     push edx   ; newBits
     mov eax, (HuffNode PTR [esi]).right
@@ -386,8 +378,6 @@ Pro2_EncodeHuffman PROC
 
     mov esi, dword ptr [ebp+8] ; rootPtr
     mov edi, dword ptr [ebp+12] ; inputPathPtr
-
-    ; Debug: ��ܭn�}��??��??��??
     mov edx, OFFSET msg_debug_path
     call WriteString
     mov edx, edi
@@ -397,12 +387,8 @@ Pro2_EncodeHuffman PROC
     ; Open input file using CreateFileA
     INVOKE CreateFileA, edi, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0
  mov dword ptr InFileHandle, eax
-    
-    ; Debug: ��� CreateFileA ��????
     cmp eax, INVALID_HANDLE_VALUE
     jne open_success
-    
-    ; ��?? Windows ���~??
     INVOKE GetLastError
     mov DebugErrorCode, eax
 
@@ -415,12 +401,10 @@ Pro2_EncodeHuffman PROC
     jmp open_in_err
 
 open_success:
-    ; �ˬd�O�_���ۭq��X��??
     mov eax, dword ptr [ebp+16] ; outputPathPtr
     cmp eax, 0
     je auto_generate_name
     
-    ; �ϥΦۭq��X��??
     mov esi, eax
   lea edi, out_filename
 CopyOutputLoop:
@@ -433,7 +417,6 @@ CopyOutputLoop:
     jmp CopyOutputLoop
     
 auto_generate_name:
-    ; �~��??�`�y�{...
     ; Create output filename by copying input path into out_filename and appending ".huff"
     mov esi, dword ptr [ebp+12] ; src inputPathPtr
  lea edi, out_filename
@@ -463,7 +446,6 @@ output_name_done:
     ; init bit buffer and build codes
     mov esi, dword ptr [ebp+8] ; restore rootPtr
     
-    ; �����G�ˬd�ڸ`�I
     mov edx, OFFSET msg_debug_path
     call WriteString
     mov eax, esi
@@ -513,7 +495,6 @@ output_name_done:
     ; move file pointer back to end to continue writing compressed data
     INVOKE SetFilePointer, dword ptr OutFileHandle, 0, 0, FILE_END
 
-    ; ?? �״_�G�T�O��J�ɮ׫��Ц^��}�Y
     INVOKE SetFilePointer, dword ptr InFileHandle, 0, 0, FILE_BEGIN
 
     ; write simple header to console for verification
@@ -541,7 +522,6 @@ nextSym:
   mov edx, OFFSET msg_compress
  call WriteString
 
-    ; �����G�ˬd�ɮ׫��Ц�m
     INVOKE SetFilePointer, dword ptr InFileHandle, 0, 0, FILE_CURRENT
     call WriteDec
     mov edx, OFFSET msg_colon
@@ -556,7 +536,6 @@ ReadChunkLoop:
     ; ReadFile(InFileHandle, ReadBuf, 4096, &ReadCount, 0)
     INVOKE ReadFile, dword ptr InFileHandle, ADDR ReadBuf, 4096, ADDR ReadCount, 0
     
-    ; �����G���Ū�����r�`��
     mov eax, ReadCount
     call WriteDec
     mov edx, OFFSET msg_colon
@@ -628,7 +607,7 @@ no_out:
     pop ebx
     mov esp, ebp
     pop ebp
-  ret 12  ; �M?? 3 �ӰѼ� (rootPtr, inputPtr, outputPtr)
+  ret 12 
 
 flush:
 call BitBufferFlush
@@ -643,7 +622,7 @@ call BitBufferFlush
     pop ebx
     mov esp, ebp
     pop ebp
-    ret 12  ; �M?? 3 �ӰѼ�
+    ret 12  
 Pro2_EncodeHuffman ENDP
 
 
