@@ -5,7 +5,6 @@ option casemap :none
 ; Include Irvine32 library
 INCLUDE Irvine32.inc
 
-; 導出公用函數
 PUBLIC BuildHuffmanTree
 PUBLIC BuildHuffmanTree_File
 
